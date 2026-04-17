@@ -10,6 +10,7 @@ const EMOJI_MAP: Record<string, string> = {
   'new york': '🗽', bali: '🌴', thailand: '🌴', india: '🕌',
   london: '🎡', spain: '💃',
 }
+
 function getEmoji(d: string) {
   const l = d.toLowerCase()
   for (const key of Object.keys(EMOJI_MAP)) {
@@ -23,9 +24,10 @@ const BUDGET_LABEL = { low: 'Budget', medium: 'Mid-range', high: 'Luxury' }
 export default async function TripsPage() {
   const session = await getServerSession(authOptions)
   await connectDB()
-  const trips = await TripModel.find({ userId: (session!.user as any).id })
+
+  const trips = (await TripModel.find({ userId: (session!.user as any).id })
     .sort({ createdAt: -1 })
-    .lean()
+    .lean()) as any[]
 
   return (
     <div className="flex flex-col h-full">
@@ -65,14 +67,6 @@ export default async function TripsPage() {
                 </div>
               </Link>
             ))}
-            <Link href="/plan">
-              <div className="bg-amber-50 rounded-2xl border border-dashed border-amber-300 flex items-center justify-center min-h-[180px] hover:bg-amber-100 transition-all">
-                <div className="text-center">
-                  <div className="text-3xl text-amber-300 mb-1">＋</div>
-                  <div className="text-sm text-amber-600 font-medium">Plan new trip</div>
-                </div>
-              </div>
-            </Link>
           </div>
         )}
       </div>

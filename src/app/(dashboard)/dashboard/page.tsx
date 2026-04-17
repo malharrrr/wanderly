@@ -28,9 +28,9 @@ export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
   await connectDB()
 
-  const trips = await TripModel.find({ userId: (session!.user as any).id })
+  const trips = (await TripModel.find({ userId: (session!.user as any).id })
     .sort({ createdAt: -1 })
-    .lean()
+    .lean()) as any[]
 
   const destinations = new Set(trips.map(t => t.destination.split(',').pop()?.trim() || '')).size
   const totalDays = trips.reduce((sum, t) => sum + t.days, 0)
@@ -41,20 +41,15 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Top bar */}
       <div className="px-8 py-6 border-b border-amber-100 flex items-center justify-between bg-white">
         <div>
           <h1 className="page-title">{greeting}, {firstName} 👋</h1>
           <p className="page-subtitle">Ready to plan your next adventure?</p>
         </div>
-        <Link href="/plan" className="btn-primary">
-          ✨ New trip
-        </Link>
+        <Link href="/plan" className="btn-primary">✨ New trip</Link>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto px-8 py-6">
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4 mb-8">
           <div className="bg-cream-100 rounded-2xl border border-amber-200 p-5">
             <div className="text-xs text-amber-700 font-medium uppercase tracking-wider">Trips planned</div>
@@ -70,7 +65,6 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Trips */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-lora text-lg font-semibold text-amber-900">My trips</h2>
           {trips.length > 0 && (
@@ -102,8 +96,6 @@ export default async function DashboardPage() {
                 </div>
               </Link>
             ))}
-
-            {/* New trip card */}
             <Link href="/plan">
               <div className="bg-amber-50 rounded-2xl border border-dashed border-amber-300 flex items-center justify-center min-h-[140px] hover:bg-amber-100 transition-all cursor-pointer">
                 <div className="text-center">
