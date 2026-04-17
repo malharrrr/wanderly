@@ -2,8 +2,7 @@
 
 A full-stack AI-powered travel planning web application built with Next.js, MongoDB, and Claude.
 
-🔗 **Live demo**: [your-deployment-url.vercel.app]
-📹 **Walkthrough video**: [your-loom-link]
+🔗 **Live demo**: https://wanderly-weld.vercel.app/
 
 ---
 
