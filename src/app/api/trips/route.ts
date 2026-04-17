@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    // Call Claude to generate the plan
+    // Call Claude/Gemini to generate the plan
     const generated = await generateTripPlan({ destination, days, budgetType, interests })
 
     await connectDB()

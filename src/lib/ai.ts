@@ -63,7 +63,7 @@ Rules:
   console.log('✨ [Free Tier] Calling Gemini 3 Flash Preview...');
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview", //
+    model: "gemini-3-flash-preview", 
     contents: prompt
   });
 
