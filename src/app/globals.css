@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --cream-50: #FFFDF8;
+    --cream-100: #FFF3DC;
+    --cream-200: #F5ECD7;
+    --amber-300: #EAC98A;
+    --amber-500: #BA7517;
+    --amber-700: #854F0B;
+    --amber-900: #3C2008;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #FFFDF8;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-amber-600 hover:bg-amber-700 text-white font-medium px-5 py-2.5 rounded-xl transition-all duration-150 text-sm disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-cream-100 hover:bg-amber-50 text-amber-700 border border-amber-200 font-medium px-5 py-2.5 rounded-xl transition-all duration-150 text-sm;
+  }
+
+  .input-field {
+    @apply w-full bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-sm text-stone-800 placeholder:text-amber-300 focus:outline-none focus:ring-2 focus:ring-amber-400 transition-all;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl border border-amber-100 p-5;
+  }
+
+  .chip {
+    @apply px-3 py-1.5 rounded-full border border-amber-200 text-xs text-amber-700 bg-amber-50 cursor-pointer transition-all hover:border-amber-400;
+  }
+
+  .chip-selected {
+    @apply bg-amber-600 text-white border-amber-600;
+  }
+
+  .page-title {
+    @apply text-2xl font-lora font-semibold text-amber-900;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-amber-700 mt-1;
+  }
+
+  .label {
+    @apply text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1.5;
+  }
+}
