@@ -64,13 +64,13 @@ Rules:
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview", //
-    contents: prompt,
-    generationConfig: { 
-      responseMimeType: "application/json" // Best practice for consistent JSON
-    }
+    contents: prompt
   });
 
-  const text = response.text; //
+  const text = response.text;
+  if (!text) {
+    throw new Error('No response text from AI model');
+  }
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
@@ -104,13 +104,13 @@ Return ONLY valid JSON:
 
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: prompt,
-    generationConfig: { 
-      responseMimeType: "application/json"
-    }
+    contents: prompt
   });
 
   const text = response.text;
+  if (!text) {
+    throw new Error('No response text from AI model');
+  }
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
