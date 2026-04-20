@@ -11,10 +11,13 @@ export interface Activity {
   time: string
   duration: string
   notes?: string
+  costEstimate?: string // NEW
 }
 
 export interface DayPlan {
   day: number
+  theme: string // NEW
+  dailyTip?: string // NEW
   activities: Activity[]
 }
 
@@ -37,19 +40,19 @@ export interface Hotel {
 export interface Trip {
   _id: string
   userId: string
+  promptUsed: string // NEW
   destination: string
   days: number
-  budgetType: 'low' | 'medium' | 'high'
-  interests: string[]
+  travelers: number // NEW
+  season: string // NEW
+  vibe: string // NEW
   itinerary: DayPlan[]
   budget: Budget
   hotels: Hotel[]
+  packingNotes: string[] // NEW
+  isPublic: boolean // NEW
+  shareSlug?: string // NEW
+  budgetType: string // NEW
+  interests: string[] // NEW
   createdAt: string
-}
-
-export interface TripFormData {
-  destination: string
-  days: number
-  budgetType: 'low' | 'medium' | 'high'
-  interests: string[]
 }

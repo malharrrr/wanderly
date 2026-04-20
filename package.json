@@ -13,7 +13,7 @@
     "@google/genai": "^1.50.1",
     "bcryptjs": "^2.4.3",
     "mongoose": "^8.0.0",
-    "next": "^14.0.0",
+    "next": "^16.2.4",
     "next-auth": "^4.24.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
@@ -28,7 +28,7 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5.0.0"
   },
-    "overrides": {
+  "overrides": {
     "node-domexception": "1.0.0"
   }
 }

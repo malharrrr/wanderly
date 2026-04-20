@@ -3,13 +3,20 @@ import { DayPlan, Budget, Hotel } from '@/types'
 
 export interface ITrip extends Document {
   userId: mongoose.Types.ObjectId
+  promptUsed: string
   destination: string
   days: number
-  budgetType: 'low' | 'medium' | 'high'
-  interests: string[]
+  travelers: number
+  season: string
+  vibe: string
   itinerary: DayPlan[]
   budget: Budget
   hotels: Hotel[]
+  packingNotes: string[]
+  isPublic: boolean
+  shareSlug: string
+  budgetType: string
+  interests: string[]
   createdAt: Date
 }
 
@@ -19,10 +26,13 @@ const ActivitySchema = new Schema({
   time: String,
   duration: String,
   notes: String,
+  costEstimate: String,
 }, { _id: false })
 
 const DayPlanSchema = new Schema({
   day: Number,
+  theme: String,
+  dailyTip: String,
   activities: [ActivitySchema],
 }, { _id: false })
 
@@ -44,13 +54,20 @@ const HotelSchema = new Schema({
 
 const TripSchema = new Schema<ITrip>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  promptUsed: { type: String, required: true },
   destination: { type: String, required: true },
   days: { type: Number, required: true },
-  budgetType: { type: String, enum: ['low', 'medium', 'high'], required: true },
-  interests: [String],
+  travelers: { type: Number, default: 1 },
+  season: { type: String, default: 'Any' },
+  vibe: { type: String, default: 'Balanced' },
   itinerary: [DayPlanSchema],
   budget: BudgetSchema,
   hotels: [HotelSchema],
+  packingNotes: [String],
+  isPublic: { type: Boolean, default: false },
+  shareSlug: { type: String, unique: true, sparse: true },
+  budgetType: { type: String, default: 'medium' },
+  interests: [String],
   createdAt: { type: Date, default: Date.now },
 })
 

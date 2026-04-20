@@ -5,7 +5,6 @@ import { connectDB } from '@/lib/db'
 import TripModel from '@/models/Trip'
 import { generateTripPlan } from '@/lib/ai'
 
-// GET /api/trips — get all trips for logged-in user
 export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user) {
@@ -20,7 +19,6 @@ export async function GET() {
   return NextResponse.json(trips)
 }
 
-// POST /api/trips — create a new trip with AI-generated itinerary
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions)
   if (!session?.user) {
@@ -29,31 +27,62 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { destination, days, budgetType, interests } = body
+    const { prompt } = body
 
-    if (!destination || !days || !budgetType || !interests?.length) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    if (!prompt) {
+      return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
 
-    // Call Claude/Gemini to generate the plan
-    const generated = await generateTripPlan({ destination, days, budgetType, interests })
+    // Generate the trip using the natural language prompt
+    const generated = await generateTripPlan(prompt)
+    
+    // Normalize hotel tier values to valid enum values
+    if (generated.hotels && Array.isArray(generated.hotels)) {
+      generated.hotels = generated.hotels.map((hotel: any) => {
+        const tierMap: { [key: string]: string } = {
+          'mid-range': 'mid',
+          'midrange': 'mid',
+          'economy': 'budget',
+          'premium': 'luxury',
+          'deluxe': 'luxury',
+          'high-end': 'luxury'
+        }
+        if (hotel.tier && tierMap[hotel.tier.toLowerCase()]) {
+          hotel.tier = tierMap[hotel.tier.toLowerCase()]
+        }
+        return hotel
+      })
+    }
+    
+    // Create a unique slug for public sharing
+    const shareSlug = `${generated.metadata.destination.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substring(2, 8)}`
 
     await connectDB()
 
     const trip = await TripModel.create({
       userId: (session.user as any).id,
-      destination,
-      days,
-      budgetType,
-      interests,
+      promptUsed: prompt,
+      destination: generated.metadata.destination,
+      days: generated.metadata.days,
+      travelers: generated.metadata.travelers,
+      season: generated.metadata.season,
+      vibe: generated.metadata.vibe,
+      budgetType: generated.metadata.budgetType,
+      interests: generated.metadata.interests,
       itinerary: generated.itinerary,
       budget: generated.budget,
       hotels: generated.hotels,
+      packingNotes: generated.packingNotes,
+      isPublic: false,
+      shareSlug: shareSlug
     })
 
     return NextResponse.json(trip, { status: 201 })
   } catch (err) {
     console.error('Create trip error:', err)
+    if ((err as any).status === 503) {
+      return NextResponse.json({ error: 'The AI service is currently experiencing high demand. Please try again later.' }, { status: 503 })
+    }
     return NextResponse.json({ error: 'Failed to generate trip' }, { status: 500 })
   }
 }
