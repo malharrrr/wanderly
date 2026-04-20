@@ -1,8 +1,63 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { GoogleGenAI } from "@google/genai";
 import { DayPlan } from '@/types';
 import { Activity } from '@/types';
 
-const ai = new GoogleGenAI({});
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const gemini = new GoogleGenAI({});
+
+// Helper function to try Gemini first, fall back to Claude on quota exhaustion
+async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Promise<string> {
+  // Try Gemini first
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      console.log(' Trying Gemini...');
+      const response = await gemini.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: { responseMimeType: "application/json" }
+      });
+      const text = response.text;
+      if (!text) throw new Error('No response text from Gemini');
+      console.log('✅Gemini succeeded');
+      return text;
+    } catch (geminiError: any) {
+      const errorMessage = geminiError?.message || '';
+      // Check if it's a quota/billing error
+      if (errorMessage.includes('RESOURCE_EXHAUSTED') || 
+          errorMessage.includes('quota') || 
+          errorMessage.includes('billing') ||
+          errorMessage.includes('403') ||
+          errorMessage.includes('429')) {
+        console.warn('⚠️ Gemini quota exhausted or billing issue, falling back to Claude...');
+      } else {
+        // For other Gemini errors, still fall back but log the error
+        console.warn('⚠️ Gemini error:', geminiError.message);
+      }
+    }
+  }
+
+  // Fall back to Claude
+  console.log(' Using Claude as fallback...');
+  const response = await anthropic.messages.create({
+    model: "claude-3-5-sonnet-20241022",
+    max_tokens: maxTokens,
+    messages: [
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
+  });
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  if (!text) throw new Error('No response text from Claude');
+  console.log('Claude succeeded');
+  return text;
+}
 
 export async function generateTripPlan(userPrompt: string): Promise<any> {
   const prompt = `You are an expert travel planner. Extract the details from the user's request and generate a realistic, highly detailed itinerary.
@@ -39,15 +94,7 @@ Rules:
 - Infer days (default 3) and travelers (default 1).
 - For hotel tier, ONLY use: "budget", "mid", or "luxury" (never use "mid-range", "economy", "premium", or other variations).`;
 
-  console.log('✨ Calling Gemini 3 Flash Preview...');
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview", 
-    contents: prompt,
-    config: { responseMimeType: "application/json" }
-  });
-
-  const text = response.text;
-  if (!text) throw new Error('No response text from AI model');
+  const text = await callAIWithFallback(prompt, 4096);
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
@@ -69,14 +116,7 @@ Return ONLY a valid JSON array with exactly 3 objects (no markdown fences):
 ]`;
 
   console.log(`Generating alternatives for ${currentActivity}...`);
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: { responseMimeType: "application/json" }
-  });
-
-  const text = response.text;
-  if (!text) throw new Error('No response text from AI model');
+  const text = await callAIWithFallback(prompt);
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
@@ -108,14 +148,7 @@ Return ONLY valid JSON:
   ]
 }`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: prompt,
-    config: { responseMimeType: "application/json" }
-  });
-
-  const text = response.text;
-  if (!text) throw new Error('No response text from AI model');
+  const text = await callAIWithFallback(prompt);
   const clean = text.replace(/```json|```/g, '').trim();
   return JSON.parse(clean);
 }
