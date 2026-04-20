@@ -7,9 +7,10 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const gemini = new GoogleGenAI({});
+const gemini = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
+});
 
-// Helper function to try Gemini first, fall back to Claude on quota exhaustion
 async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Promise<string> {
   // Try Gemini first
   if (process.env.GEMINI_API_KEY) {
@@ -22,7 +23,7 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
       });
       const text = response.text;
       if (!text) throw new Error('No response text from Gemini');
-      console.log('✅Gemini succeeded');
+      console.log('Gemini succeeded');
       return text;
     } catch (geminiError: any) {
       const errorMessage = geminiError?.message || '';
@@ -32,10 +33,10 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
           errorMessage.includes('billing') ||
           errorMessage.includes('403') ||
           errorMessage.includes('429')) {
-        console.warn('⚠️ Gemini quota exhausted or billing issue, falling back to Claude...');
+        console.warn('Gemini quota exhausted or billing issue, falling back to Claude...');
       } else {
         // For other Gemini errors, still fall back but log the error
-        console.warn('⚠️ Gemini error:', geminiError.message);
+        console.warn('Gemini error:', geminiError.message);
       }
     }
   }
