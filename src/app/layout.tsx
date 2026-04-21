@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Lora, Source_Sans_3 } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 import Providers from '@/components/Providers'
 import './globals.css'
 
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${lora.variable} ${sourceSans.variable}`}>
       <body className="bg-cream-50 font-source text-stone-800 antialiased">
         <Providers>{children}</Providers>
+        <Analytics />
       </body>
     </html>
   )
