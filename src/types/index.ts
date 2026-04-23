@@ -3,6 +3,8 @@ export interface User {
   name: string
   email: string
   createdAt: string
+  failedLoginAttempts?: number
+  lockUntil?: Date
 }
 
 export interface Activity {
