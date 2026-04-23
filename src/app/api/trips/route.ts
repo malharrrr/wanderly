@@ -33,10 +33,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
 
-    // Generate the trip using the natural language prompt
     const generated = await generateTripPlan(prompt)
     
-    // Normalize hotel tier values to valid enum values
     if (generated.hotels && Array.isArray(generated.hotels)) {
       generated.hotels = generated.hotels.map((hotel: any) => {
         const tierMap: { [key: string]: string } = {
@@ -78,11 +76,20 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json(trip, { status: 201 })
-  } catch (err) {
+  } catch (err: any) {
     console.error('Create trip error:', err)
-    if ((err as any).status === 503) {
+    
+    if (err.status === 503) {
       return NextResponse.json({ error: 'The AI service is currently experiencing high demand. Please try again later.' }, { status: 503 })
     }
-    return NextResponse.json({ error: 'Failed to generate trip' }, { status: 500 })
+    if (
+      err.message?.includes('Your request could not be processed') || 
+      err.message?.includes('The AI service returned an incompatible response') ||
+      err.message?.includes('Malicious activity detected')
+    ) {
+      return NextResponse.json({ error: err.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ error: 'Failed to generate trip. Please try again.' }, { status: 500 })
   }
 }
