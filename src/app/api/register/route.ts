@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { connectDB } from '@/lib/db'
 import UserModel from '@/models/User'
+import { RegisterSchema } from '@/lib/validations'
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, email, password } = await req.json()
+    const body = await req.json()
 
-    if (!name || !email || !password) {
-      return NextResponse.json({ error: 'All fields are required' }, { status: 400 })
+    const validation = RegisterSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json({
+        error: validation.error.issues[0].message
+      }, { status: 400 })
     }
 
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 })
-    }
+    const { name, email, password } = validation.data
 
     await connectDB()
 
@@ -23,7 +25,11 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
-    const user = await UserModel.create({ name, email: email.toLowerCase(), passwordHash })
+    const user = await UserModel.create({ 
+      name, 
+      email: email.toLowerCase(), 
+      passwordHash 
+    })
 
     return NextResponse.json({ id: user._id, name: user.name, email: user.email }, { status: 201 })
   } catch (err) {
