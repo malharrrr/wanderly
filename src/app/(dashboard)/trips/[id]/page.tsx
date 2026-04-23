@@ -12,6 +12,8 @@ export default function TripPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [weatherData, setWeatherData] = useState<string | null>(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
 
   // Tab & Action States
   const [activeTab, setActiveTab] = useState<'itinerary' | 'budget' | 'hotels' | 'packing'>('itinerary')
@@ -24,7 +26,19 @@ export default function TripPage() {
 
   const fetchTrip = useCallback(async () => {
     const res = await fetch(`/api/trips/${id}`)
-    if (res.ok) setTrip(await res.json())
+    if (res.ok) {
+      const data = await res.json()
+      setTrip(data)
+
+      if (data.destination && data.season) {
+        setWeatherLoading(true)
+        fetch(`/api/weather?destination=${encodeURIComponent(data.destination)}&season=${encodeURIComponent(data.season)}`)
+          .then(res => res.json())
+          .then(wData => setWeatherData(wData.weather))
+          .catch(() => setWeatherData('Weather data unavailable at the moment.'))
+          .finally(() => setWeatherLoading(false))
+      }
+    }
     setLoading(false)
   }, [id])
 
@@ -101,7 +115,16 @@ export default function TripPage() {
       <div className="px-8 py-5 border-b border-amber-100 bg-white flex items-center justify-between">
         <div>
           <h1 className="page-title">{trip.destination}</h1>
-          <p className="page-subtitle">{trip.days} days · {trip.vibe} · {trip.season}</p>
+          <p className="page-subtitle mb-2">{trip.days} days · {trip.vibe} · {trip.season}</p>
+          
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-50 border border-sky-100 rounded-lg text-xs text-sky-800">
+            {weatherLoading ? (
+              <span className="animate-pulse">Fetching live weather...</span>
+            ) : (
+              <span>{weatherData || 'Weather data unavailable.'}</span>
+            )}
+          </div>
+
         </div>
         <div className="flex items-center gap-3">
           <button onClick={toggleShare} className={`btn-secondary ${trip.isPublic ? 'bg-green-50 border-green-200 text-green-700' : ''}`}>
