@@ -1,130 +1,168 @@
 # Wanderly — AI Travel Planner
 
-A full-stack AI-powered travel planning web application built with Next.js, MongoDB, and Claude.
+A full-stack AI-powered travel planning web app. Give it a destination, your budget, and your interests — it generates a complete day-by-day itinerary, budget breakdown, and hotel recommendations in seconds.
 
-🔗 **Live demo**: https://wanderly-weld.vercel.app/
+🔗 **Live demo**: [wanderly-weld.vercel.app](https://wanderly-weld.vercel.app)
+
+![TypeScript](https://img.shields.io/badge/TypeScript-97.7%25-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-16-black?style=flat-square&logo=next.js)
+![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248?style=flat-square&logo=mongodb&logoColor=white)
+![Vercel](https://img.shields.io/badge/Deployed-Vercel-black?style=flat-square&logo=vercel)
+
+---
+
+## Features
+
+- **AI itinerary generation** — full day-by-day plans with activities, timings, and local tips
+- **Budget estimator** — flight, accommodation, food, and activity cost breakdown per trip
+- **Hotel recommendations** — three tiers (budget, mid-range, luxury) with an AI-picked best fit
+- **Inline day regeneration** — type a natural language instruction to surgically rewrite a single day without touching the rest
+- **Activity editing** — add or remove individual activities per day
+- **Dual AI provider** — Gemini 3 flash as primary, Claude 3.5 Sonnet as automatic fallback
+- **Rate limiting** — Upstash Redis-backed rate limiting on all AI endpoints
+- **Auth** — JWT sessions via NextAuth, bcrypt password hashing, full data isolation per user
 
 ---
 
 ## Tech stack
 
-| Layer | Technology | Why |
-|---|---|---|
-| Frontend | Next.js 14 (App Router) | Full-stack framework, file-based routing, server components |
-| Styling | Tailwind CSS | Utility-first, fast to build, consistent design |
-| Auth | NextAuth.js | Handles sessions, JWT, and credential auth out of the box |
-| Database | MongoDB + Mongoose | Flexible schema for AI-generated content that varies in structure |
-| AI | Anthropic Claude API | Best-in-class instruction following for structured JSON output |
-| Deployment | Vercel | Native Next.js support, zero config deployment |
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router, server components) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Auth | NextAuth.js v4 — JWT + credentials |
+| Database | MongoDB Atlas + Mongoose |
+| AI (primary) | Google Gemini 1.5 Pro (`@google/genai`) |
+| AI (fallback) | Anthropic Claude 3.5 Sonnet (`@anthropic-ai/sdk`) |
+| Rate limiting | Upstash Redis + `@upstash/ratelimit` |
+| Validation | Zod |
+| Analytics | Vercel Analytics |
+| Deployment | Vercel |
 
 ---
 
-## Architecture overview
+## Architecture
 
-This app uses **Next.js as a full-stack framework** — there is no separate backend server. API routes in `/src/app/api/` handle all backend logic.
+Next.js is used as a full-stack framework — no separate backend server. API routes handle all server-side logic.
 
 ```
-User browser
-    │
-    ▼
-Next.js App (Vercel)
-    ├── /app/(auth)/          → Login, register pages (public)
-    ├── /app/(dashboard)/     → Protected pages with sidebar layout
-    │   ├── /dashboard        → Stats + trip list
-    │   ├── /plan             → Trip creation form
-    │   └── /trips/[id]       → Itinerary view + editor
-    ├── /app/api/
-    │   ├── /auth/[...nextauth] → NextAuth session handler
-    │   ├── /register           → User creation
-    │   ├── /trips              → GET all trips / POST create trip
-    │   └── /trips/[id]         → GET / PATCH / DELETE single trip
-    └── /lib/
-        ├── db.ts               → MongoDB connection (singleton)
-        ├── auth.ts             → NextAuth config
-        └── ai.ts               → Claude API calls
+src/
+├── app/
+│   ├── (auth)/
+│   │   ├── login/              → Login page
+│   │   └── register/           → Register page
+│   ├── (dashboard)/
+│   │   ├── layout.tsx          → Sidebar layout (auth-gated)
+│   │   ├── dashboard/          → Stats + trip list
+│   │   ├── plan/               → Trip creation form
+│   │   └── trips/[id]/         → Itinerary view + editor
+│   └── api/
+│       ├── auth/[...nextauth]/ → NextAuth handler
+│       ├── register/           → User creation
+│       ├── trips/              → GET all / POST create trip
+│       └── trips/[id]/         → GET / PATCH / DELETE single trip
+├── lib/
+│   ├── db.ts                   → MongoDB singleton connection
+│   ├── auth.ts                 → NextAuth config
+│   └── ai.ts                   → AI provider abstraction
+├── models/
+│   ├── User.ts                 → Mongoose user schema
+│   └── Trip.ts                 → Mongoose trip schema
+└── types/
+    └── index.ts                → Shared TypeScript types
 ```
 
 ---
 
-## Authentication & authorization
+## AI design
 
-- Passwords are hashed with **bcrypt** (12 rounds) before storage — never stored in plain text
-- Sessions use **JWT** via NextAuth — stateless, no server-side session store needed
-- Every API route calls `getServerSession()` and returns 401 if not authenticated
-- **Data isolation**: every trip is stored with a `userId` field. All DB queries filter by `userId: session.user.id`, so users can never access each other's data — even if they guess a trip ID
+All AI logic lives in `src/lib/ai.ts`. The file exposes two functions — `generateTripPlan()` and `regenerateDay()` — and internally handles provider routing, fallback, and JSON parsing. The rest of the app never knows which model responded.
 
----
+**Provider strategy:**
+1. Gemini 3 Flash is called first (faster, generous free tier)
+2. If Gemini fails for any reason, Claude 3.5 Sonnet is called automatically
+3. Both receive the same prompt and return the same JSON structure
 
-## AI agent design
+**Single-prompt design:** The itinerary, budget, and hotel suggestions are all requested in one API call. This cuts latency roughly in half compared to chaining three separate prompts, and reduces API costs.
 
-The AI integration lives in `/src/lib/ai.ts` and uses two functions:
+**Structured output:** The prompt instructs the model to return only valid JSON with a fixed schema. Responses are stripped of any accidental markdown fences before parsing.
 
-**`generateTripPlan()`** — Called when creating a new trip. Sends a single prompt to Claude that returns structured JSON containing:
-- Full day-by-day itinerary (activities with name, time, duration, notes)
-- Budget breakdown (flights, accommodation, food, activities, total)
-- Hotel suggestions (3 tiers: budget, mid-range, luxury)
-
-Using a single prompt for all three reduces latency and API costs. The prompt explicitly instructs Claude to return only valid JSON, which is then parsed and stored in MongoDB.
-
-**`regenerateDay()`** — Called when user asks to regenerate a specific day. Sends the current activities + user instruction to Claude and replaces just that day in the stored itinerary.
-
----
-
-## Creative / custom feature
-
-**Tabbed itinerary view with inline day regeneration**
-
-Instead of a simple list, each day card has an inline text input where users can type a natural language instruction like *"More outdoor activities"* or *"Add a cooking class"* and regenerate just that day without touching the rest of the itinerary. This solves the real problem of AI-generated content feeling "all or nothing" — users can surgically adjust individual days while keeping the rest intact.
-
-The PATCH endpoint accepts an `action` field (`remove_activity`, `add_activity`, `regenerate_day`) to handle all three edit types in one route, keeping the API clean and extensible.
+**`regenerateDay()`** accepts the current day's activities plus a user instruction and returns a replacement `DayPlan` object. The PATCH endpoint swaps just that day in the stored itinerary, leaving all other days untouched.
 
 ---
 
 ## Local setup
 
+**Prerequisites:** Node.js 18+, a MongoDB Atlas account, and at least one AI API key.
+
 ```bash
-# 1. Clone and install
-git clone https://github.com/YOUR_USERNAME/wanderly.git
+# 1. Clone
+git clone https://github.com/malharrrr/wanderly.git
 cd wanderly
+
+# 2. Install dependencies
 npm install
 
-# 2. Create .env.local (see SETUP.md for how to get each key)
+# 3. Set up environment variables
 cp .env.example .env.local
+# Fill in your values (see below)
 
-# 3. Run dev server
+# 4. Run
 npm run dev
 ```
 
-Open http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
 ## Environment variables
 
 ```env
-NEXTAUTH_SECRET=        # Random string (openssl rand -base64 32)
-NEXTAUTH_URL=           # http://localhost:3000 (or your deployed URL)
-MONGODB_URI=            # MongoDB Atlas connection string
-ANTHROPIC_API_KEY=      # From console.anthropic.com
+# Auth
+NEXTAUTH_SECRET=          # openssl rand -base64 32
+NEXTAUTH_URL=             # http://localhost:3000
+
+# Database
+MONGODB_URI=              # mongodb+srv://user:pass@cluster.mongodb.net/wanderly
+
+# AI — at least one is required; both enables automatic fallback
+GEMINI_API_KEY=           # From aistudio.google.com
+ANTHROPIC_API_KEY=        # From console.anthropic.com
+
+# Rate limiting (optional but recommended in production)
+UPSTASH_REDIS_REST_URL=   # From upstash.com
+UPSTASH_REDIS_REST_TOKEN= # From upstash.com
+```
+
+Getting your keys:
+- **MongoDB URI** → [mongodb.com/atlas](https://mongodb.com/atlas) → Free cluster → Connect → Drivers
+- **Gemini API key** → [aistudio.google.com](https://aistudio.google.com) → Get API Key (free)
+- **Anthropic API key** → [console.anthropic.com](https://console.anthropic.com) → API Keys
+- **Upstash** → [upstash.com](https://upstash.com) → Create Redis database → REST API credentials
+
+---
+
+## Deployment
+
+The app is deployed on Vercel with MongoDB Atlas and Upstash Redis.
+
+```bash
+# Push to GitHub, then import at vercel.com
+# Add all environment variables in the Vercel dashboard
+# Change NEXTAUTH_URL to your production Vercel URL after first deploy
 ```
 
 ---
 
-## Key design decisions & trade-offs
+## Design decisions
 
-**Single repo, no separate backend**: Using Next.js API routes instead of a standalone Express server reduces complexity significantly. The trade-off is that compute-heavy operations run on serverless functions with a 10s default timeout — mitigated by using fast Claude API calls.
+**No separate backend** — Next.js API routes handle everything. One repo, one deployment, zero infrastructure to manage. The trade-off is serverless function cold starts and a default 10s timeout, which is acceptable given AI call latency at this scale.
 
-**Structured JSON prompting**: Prompting Claude to return only JSON (no prose, no markdown fences) makes parsing reliable. The prompt includes explicit type hints and examples so the output schema is consistent.
+**Mongoose over raw MongoDB driver** — Adds a schema validation layer before writes, which matters when AI output could have an unexpected shape despite strict prompting.
 
-**Mongoose over raw MongoDB driver**: Adds a schema layer that validates data before saving, which is important when storing AI-generated content that could have unexpected shapes.
+**Zod for input validation** — All incoming request bodies are validated with Zod before any DB or AI call. Keeps error messages clean and prevents malformed data from reaching the models.
 
-**Client-side trip editing**: Edits (add/remove activity, regenerate day) use client-side state updated optimistically after each PATCH response. This keeps the UI feeling fast without a full page reload.
+**Client-side state after edits** — After any PATCH call, the response replaces the client's trip state directly. No full page reload, no extra GET. Makes editing feel instant.
 
----
-
-## Known limitations
-
-- Hotel suggestions are AI-generated estimates, not real availability data
-- Budget estimates are rough approximations based on destination and budget level
-- No image support — destination emoji is mapped from keywords
-- Regenerating a day takes ~5–10 seconds (Claude API latency)
+**Rate limiting on AI endpoints** — Upstash Redis rate limiting prevents a single user from hammering the AI API and running up costs. Applied per-IP on trip creation and day regeneration.
