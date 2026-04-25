@@ -43,7 +43,7 @@ export async function getWeatherContext(destinationsString: string): Promise<Wea
 
         return { location: name, summary, daily }
       } catch (err) {
-        console.log(`⚠️ Could not fetch weather for ${destination}:`, err);
+        console.log('⚠️ Could not fetch weather for %s:', destination, err);
         return null;
       }
     }));
@@ -51,7 +51,7 @@ export async function getWeatherContext(destinationsString: string): Promise<Wea
     return forecasts.filter((f): f is WeatherLocationForecast => f !== null);
 
   } catch (error) {
-    console.log(`⚠️ Could not fetch live weather for all locations in: ${destinationsString}.`);
+    console.log('⚠️ Could not fetch live weather for all locations in: %s.', destinationsString);
     return [];
   }
 }
