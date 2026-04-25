@@ -21,6 +21,7 @@ const DayPlanSchema = z.object({
 
 const TripResponseSchema = z.object({
   metadata: z.object({
+    origin: z.string().nullable().optional().transform(v => v || ""),
     destination: z.string().nullable().transform(v => v || "Not specified"),
     days: z.number().nullable().transform(v => v || 3),
     travelers: z.number().nullable().transform(v => v || 1),
@@ -79,7 +80,6 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
       return text;
     } catch (geminiError: any) {
       const errorMessage = geminiError?.message || '';
-      // Check if it's a quota/billing error
       if (errorMessage.includes('RESOURCE_EXHAUSTED') || 
           errorMessage.includes('quota') || 
           errorMessage.includes('billing') ||
@@ -97,10 +97,7 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
     model: "claude-3-5-sonnet-20241022",
     max_tokens: maxTokens,
     messages: [
-      {
-        role: "user",
-        content: prompt,
-      },
+      { role: "user", content: prompt },
     ],
   });
 
@@ -120,7 +117,8 @@ User Request: "${sanitizedPrompt}"
 Return ONLY valid JSON with this exact structure (no markdown fences):
 {
   "metadata": {
-    "destination": "Extracted main destination",
+    "origin": "Extracted departure city if mentioned, otherwise null", 
+    "destination": "Extracted main destination. If multiple cities, return as a comma-separated string (e.g., 'Tokyo, Kyoto, Osaka')",
     "days": 5, 
     "travelers": 2, 
     "season": "Extracted season",
@@ -147,14 +145,23 @@ Rules:
 - Infer days (default 3) and travelers (default 1).
 - For hotel tier, ONLY use: "budget", "mid", or "luxury" (never use "mid-range", "economy", "premium", or other variations).
 - If the request is not related to travel, set "destination" to "Not specified", use empty arrays [] for lists, and ensure there are NO null values in the JSON.
-- If the user's plan involves multiple cities or countries, return them in the 'destination' field as a single comma-separated string (e.g., 'Tokyo, Kyoto, Osaka').`;
+- If the user's plan involves multiple cities or countries, return them in the 'destination' field as a single comma-separated string (e.g., 'Tokyo, Kyoto, Osaka').
+- For hotel tier, ONLY use: "budget", "mid", or "luxury".`;
 
-  const text = await callAIWithFallback(prompt, 4096);
-  const clean = text.replace(/```json|```/g, '').trim();
+  const text = await callAIWithFallback(prompt, 8192); 
+  let clean = text.replace(/```json|```/g, '').trim();
   
+  const startIndex = clean.indexOf('{');
+  const endIndex = clean.lastIndexOf('}');
+  
+  if (startIndex !== -1 && endIndex !== -1) {
+    clean = clean.substring(startIndex, endIndex + 1);
+  }
+
+  clean = clean.replace(/,\s*([\]}])/g, '$1');
+
   try {
     const rawData = JSON.parse(clean);
-    
     const validatedTrip = TripResponseSchema.parse(rawData);
 
     const dest = validatedTrip.metadata.destination.toLowerCase();
@@ -168,7 +175,8 @@ Rules:
     if (err.message === "REJECTED_NON_TRAVEL") {
       throw new Error("Your request could not be processed. Please provide a clear, travel-related destination.");
     }
-    console.error("AI output validation failed:", err);
+    console.error("AI output validation failed. Raw string snippet:", clean.substring(clean.length - 100)); 
+    console.error(err);
     throw new Error("The AI service returned an incompatible response. Please try again.");
   }
 }

@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
     const trip = await TripModel.create({
       userId: (session.user as any).id,
       promptUsed: prompt,
+      origin: generated.metadata.origin,
       destination: generated.metadata.destination,
       days: generated.metadata.days,
       travelers: generated.metadata.travelers,

@@ -4,6 +4,7 @@ import { DayPlan, Budget, Hotel } from '@/types'
 export interface ITrip extends Document {
   userId: mongoose.Types.ObjectId
   promptUsed: string
+  origin?: string
   destination: string
   days: number
   travelers: number
@@ -55,6 +56,7 @@ const HotelSchema = new Schema({
 const TripSchema = new Schema<ITrip>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   promptUsed: { type: String, required: true },
+  origin: { type: String, default: null }, 
   destination: { type: String, required: true },
   days: { type: Number, required: true },
   travelers: { type: Number, default: 1 },

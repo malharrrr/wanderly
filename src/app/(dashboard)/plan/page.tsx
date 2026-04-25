@@ -9,9 +9,9 @@ export default function PlanPage() {
   const [error, setError] = useState('')
 
   const SUGGESTIONS = [
-    "10 days in Kyoto in late April, traveling solo. Include a ryokan at the end.",
-    "A cheap weekend getaway to Berlin for two. We love techno and street food.",
-    "5 days in New York City with kids in December. Festive vibe.",
+    "Leaving from San Francisco for 10 days in Kyoto in late April, traveling solo. Include a ryokan at the end.",
+    "A cheap weekend getaway leaving from London to Berlin for two. We love techno and street food.",
+    "Flying out of Miami for 5 days in New York City with kids in December. Festive vibe.",
   ]
 
   async function handleSubmit(e?: React.FormEvent) {
@@ -52,7 +52,7 @@ export default function PlanPage() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           disabled={loading}
-          placeholder="e.g., 10 days in Kyoto, late April. One ryokan at the end."
+          placeholder='e.g., A 5-day honeymoon in Bali leaving from New York next October. We love luxury hotels and quiet beaches.'
           className="w-full bg-white border-2 border-amber-200 rounded-2xl p-5 text-lg text-stone-800 placeholder:text-amber-300 focus:outline-none focus:border-amber-500 shadow-sm resize-none h-32"
         />
         <button

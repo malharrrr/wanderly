@@ -43,6 +43,7 @@ export interface Trip {
   _id: string
   userId: string
   promptUsed: string // NEW
+  origin?: string // NEW
   destination: string
   days: number
   travelers: number // NEW

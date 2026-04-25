@@ -12,10 +12,10 @@ export default function TripPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  
-  const [weatherData, setWeatherData] = useState<WeatherLocationForecast[] | null>(null)
+ 
+  const [weatherData, setWeatherData] = useState<WeatherLocationForecast[] | string | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
-  const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0) // Sub-tab index
+  const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0)
 
   // Tab & Action States
   const [activeTab, setActiveTab] = useState<'itinerary' | 'budget' | 'hotels' | 'packing' | 'weather'>('itinerary')
@@ -36,8 +36,8 @@ export default function TripPage() {
         setWeatherLoading(true)
         fetch(`/api/weather?destinations=${encodeURIComponent(data.destination)}&season=${encodeURIComponent(data.season)}`)
           .then(res => res.json())
-          .then(wData => setWeatherData(wData.weather || []))
-          .catch(() => setWeatherData([]))
+          .then(wData => setWeatherData(wData.weather))
+          .catch(() => setWeatherData('Weather data unavailable at the moment.'))
           .finally(() => setWeatherLoading(false))
       }
     }
@@ -113,9 +113,11 @@ export default function TripPage() {
   if (loading) return <div className="p-8 text-center">Loading...</div>
   if (!trip) return <div className="p-8 text-center">Trip not found.</div>
 
-  const headerWeatherString = weatherData && weatherData.length > 0
+  const headerWeatherString = Array.isArray(weatherData) 
     ? weatherData.map(w => w.summary).join('  |  ')
-    : 'Weather data unavailable.';
+    : typeof weatherData === 'string' 
+      ? weatherData 
+      : 'Weather data unavailable.';
 
   return (
     <div className="flex flex-col h-full">
@@ -220,7 +222,7 @@ export default function TripPage() {
 
         {/* Budget Tab */}
         {activeTab === 'budget' && (
-          <div className="max-w-md">
+          <div className="max-w-md space-y-6">
             <div className="card">
               <h3 className="font-lora text-base font-semibold text-amber-900 mb-4">Estimated trip cost</h3>
               <div className="space-y-0 divide-y divide-amber-50">
@@ -240,6 +242,32 @@ export default function TripPage() {
                   <span className="text-amber-700 text-base">${(trip.budget?.total || 0).toLocaleString()}</span>
                 </div>
               </div>
+            </div>
+
+            {/* flightbooking widget */}
+            <div className="card bg-sky-50 border-sky-100">
+              <h3 className="font-lora text-base font-semibold text-sky-900 mb-2">✈️ Book your flights</h3>
+              
+              {trip.origin ? (
+                <>
+                  <p className="text-sm text-sky-700 mb-4">
+                    Ready to book your trip from <strong>{trip.origin}</strong> to <strong>{trip.destination}</strong>?
+                  </p>
+                  <a 
+                    href={`https://www.google.com/travel/flights?q=Flights%20from%20${encodeURIComponent(trip.origin)}%20to%20${encodeURIComponent(trip.destination)}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block w-full text-center px-4 py-2.5 bg-sky-600 text-white rounded-xl font-medium hover:bg-sky-700 transition-colors shadow-sm"
+                  >
+                    Search on Google Flights ↗
+                  </a>
+                </>
+              ) : (
+                <div className="text-sm text-sky-700">
+                  <p className="mb-2">We noticed you didn't include a departure city in your prompt.</p>
+                  <p className="opacity-80 italic">Tip: Next time, include "leaving from [City]" to get direct flight booking links!</p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -285,7 +313,7 @@ export default function TripPage() {
           </div>
         )}
 
-        {/* multi city weather tab */}
+        {/* Weather Tab */}
         {activeTab === 'weather' && (
           <div className="max-w-4xl">
             <h3 className="font-lora font-semibold text-xl text-amber-900 mb-6">Live Forecasts</h3>
@@ -294,7 +322,6 @@ export default function TripPage() {
               <div className="p-8 text-center text-stone-500">Loading multi-city forecasts...</div>
             ) : Array.isArray(weatherData) && weatherData.length > 0 ? (
               <>
-                {/* Location Sub-Tabs (Only shows if there is more than 1 location) */}
                 {weatherData.length > 1 && (
                   <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                     {weatherData.map((loc, idx) => (
@@ -309,7 +336,6 @@ export default function TripPage() {
                   </div>
                 )}
 
-                {/* grid for the currently selected location */}
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                   {weatherData[activeWeatherLoc].daily.map((day, i) => (
                     <div key={i} className={`p-4 rounded-2xl border flex flex-col items-center text-center ${i === 0 ? 'bg-sky-50 border-sky-200' : 'bg-white border-amber-100'}`}>
