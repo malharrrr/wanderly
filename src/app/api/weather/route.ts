@@ -10,15 +10,15 @@ export async function GET(req: NextRequest) {
   }
 
   const { searchParams } = new URL(req.url)
-  const destination = searchParams.get('destination')
+  const destinations = searchParams.get('destinations')
   const season = searchParams.get('season')
 
-  if (!destination || !season) {
+  if (!destinations || !season) {
     return NextResponse.json({ error: 'Missing parameters' }, { status: 400 })
   }
 
   try {
-    const weather = await getWeatherContext(destination, season)
+    const weather = await getWeatherContext(destinations, season)
     return NextResponse.json({ weather })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch weather' }, { status: 500 })

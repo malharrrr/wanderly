@@ -146,7 +146,8 @@ Return ONLY valid JSON with this exact structure (no markdown fences):
 Rules:
 - Infer days (default 3) and travelers (default 1).
 - For hotel tier, ONLY use: "budget", "mid", or "luxury" (never use "mid-range", "economy", "premium", or other variations).
-- If the request is not related to travel, set "destination" to "Not specified", use empty arrays [] for lists, and ensure there are NO null values in the JSON.`;
+- If the request is not related to travel, set "destination" to "Not specified", use empty arrays [] for lists, and ensure there are NO null values in the JSON.
+- If the user's plan involves multiple cities or countries, return them in the 'destination' field as a single comma-separated string (e.g., 'Tokyo, Kyoto, Osaka').`;
 
   const text = await callAIWithFallback(prompt, 4096);
   const clean = text.replace(/```json|```/g, '').trim();

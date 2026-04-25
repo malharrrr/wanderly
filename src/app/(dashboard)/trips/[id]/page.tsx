@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Trip, DayPlan, Activity, WeatherForecast } from '@/types'
+import { Trip, DayPlan, Activity, WeatherLocationForecast } from '@/types'
 
 const TIER_STYLE = { budget: 'bg-green-50 text-green-700 border-green-200', mid: 'bg-blue-50 text-blue-700 border-blue-200', luxury: 'bg-purple-50 text-purple-700 border-purple-200' }
 const TIER_LABEL = { budget: 'Budget friendly', mid: 'Mid range', luxury: 'Luxury' }
@@ -13,9 +13,9 @@ export default function TripPage() {
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
   
-  // new weather states
-  const [weatherData, setWeatherData] = useState<WeatherForecast | string | null>(null)
+  const [weatherData, setWeatherData] = useState<WeatherLocationForecast[] | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
+  const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0) // Sub-tab index
 
   // Tab & Action States
   const [activeTab, setActiveTab] = useState<'itinerary' | 'budget' | 'hotels' | 'packing' | 'weather'>('itinerary')
@@ -34,10 +34,10 @@ export default function TripPage() {
 
       if (data.destination && data.season) {
         setWeatherLoading(true)
-        fetch(`/api/weather?destination=${encodeURIComponent(data.destination)}&season=${encodeURIComponent(data.season)}`)
+        fetch(`/api/weather?destinations=${encodeURIComponent(data.destination)}&season=${encodeURIComponent(data.season)}`)
           .then(res => res.json())
-          .then(wData => setWeatherData(wData.weather))
-          .catch(() => setWeatherData('Weather data unavailable at the moment.'))
+          .then(wData => setWeatherData(wData.weather || []))
+          .catch(() => setWeatherData([]))
           .finally(() => setWeatherLoading(false))
       }
     }
@@ -91,7 +91,9 @@ export default function TripPage() {
     setAlternatives(prev => { const next = {...prev}; delete next[activityId]; return next; });
   }
 
-  async function removeActivity(dayNumber: number, activityId: string) { await patch({ action: 'remove_activity', dayNumber, activityId }) }
+  async function removeActivity(dayNumber: number, activityId: string) { 
+    await patch({ action: 'remove_activity', dayNumber, activityId }) 
+  }
 
   async function regenerateDay(dayNumber: number) {
     const instruction = regenText[dayNumber]?.trim() || 'Regenerate with similar activities'
@@ -111,9 +113,9 @@ export default function TripPage() {
   if (loading) return <div className="p-8 text-center">Loading...</div>
   if (!trip) return <div className="p-8 text-center">Trip not found.</div>
 
-  const headerWeatherString = typeof weatherData === 'string' 
-    ? weatherData 
-    : weatherData?.summary || 'Weather data unavailable.';
+  const headerWeatherString = weatherData && weatherData.length > 0
+    ? weatherData.map(w => w.summary).join('  |  ')
+    : 'Weather data unavailable.';
 
   return (
     <div className="flex flex-col h-full">
@@ -145,7 +147,11 @@ export default function TripPage() {
       {/* Tabs */}
       <div className="px-8 flex gap-4 border-b border-amber-100 bg-white pt-2 overflow-x-auto">
         {(['itinerary', 'budget', 'hotels', 'packing', 'weather'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-medium capitalize border-b-2 transition-all whitespace-nowrap ${activeTab === tab ? 'border-amber-600 text-amber-700' : 'border-transparent text-stone-400 hover:text-amber-600'}`}>
+          <button 
+            key={tab} 
+            onClick={() => setActiveTab(tab)} 
+            className={`pb-3 text-sm font-medium capitalize border-b-2 transition-all whitespace-nowrap ${activeTab === tab ? 'border-amber-600 text-amber-700' : 'border-transparent text-stone-400 hover:text-amber-600'}`}
+          >
             {tab}
           </button>
         ))}
@@ -279,30 +285,48 @@ export default function TripPage() {
           </div>
         )}
 
-        {/*  Weather Tab  */}
+        {/* multi city weather tab */}
         {activeTab === 'weather' && (
           <div className="max-w-4xl">
-            <h3 className="font-lora font-semibold text-xl text-amber-900 mb-6">7-Day Forecast for {trip.destination}</h3>
+            <h3 className="font-lora font-semibold text-xl text-amber-900 mb-6">Live Forecasts</h3>
             
             {weatherLoading ? (
-              <div className="p-8 text-center text-stone-500">Loading forecast...</div>
-            ) : typeof weatherData === 'object' && weatherData?.daily ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                {weatherData.daily.map((day, i) => (
-                  <div key={i} className={`p-4 rounded-2xl border flex flex-col items-center text-center ${i === 0 ? 'bg-sky-50 border-sky-200' : 'bg-white border-amber-100'}`}>
-                    <div className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">{i === 0 ? 'Today' : day.date}</div>
-                    <div className="text-3xl mb-3">{day.description.split(' ')[0]}</div> {/* Grabs the emoji */}
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-bold text-stone-800">{day.maxTemp}°</span>
-                      <span className="text-xs text-stone-400">{day.minTemp}°</span>
-                    </div>
-                    <div className="text-xs text-stone-500 mt-2 leading-tight">{day.description.substring(day.description.indexOf(' ') + 1)}</div>
+              <div className="p-8 text-center text-stone-500">Loading multi-city forecasts...</div>
+            ) : Array.isArray(weatherData) && weatherData.length > 0 ? (
+              <>
+                {/* Location Sub-Tabs (Only shows if there is more than 1 location) */}
+                {weatherData.length > 1 && (
+                  <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    {weatherData.map((loc, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveWeatherLoc(idx)}
+                        className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border ${activeWeatherLoc === idx ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-sm' : 'bg-white border-amber-100 text-stone-500 hover:bg-amber-50'}`}
+                      >
+                        📍 {loc.location}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+
+                {/* grid for the currently selected location */}
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                  {weatherData[activeWeatherLoc].daily.map((day, i) => (
+                    <div key={i} className={`p-4 rounded-2xl border flex flex-col items-center text-center ${i === 0 ? 'bg-sky-50 border-sky-200' : 'bg-white border-amber-100'}`}>
+                      <div className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">{i === 0 ? 'Today' : day.date}</div>
+                      <div className="text-3xl mb-3">{day.description.split(' ')[0]}</div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-bold text-stone-800">{day.maxTemp}°</span>
+                        <span className="text-xs text-stone-400">{day.minTemp}°</span>
+                      </div>
+                      <div className="text-xs text-stone-500 mt-2 leading-tight">{day.description.substring(day.description.indexOf(' ') + 1)}</div>
+                    </div>
+                  ))}
+                </div>
+              </>
             ) : (
               <div className="p-8 text-center text-stone-500 bg-white rounded-2xl border border-amber-100">
-                Detailed forecast is currently unavailable for this destination.
+                Detailed forecast is currently unavailable for these destinations.
               </div>
             )}
           </div>

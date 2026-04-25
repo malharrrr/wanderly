@@ -71,3 +71,9 @@ export interface WeatherForecast {
   summary: string
   daily: DailyWeather[]
 }
+//represents a single city's forecast
+export interface WeatherLocationForecast {
+  location: string
+  summary: string
+  daily: DailyWeather[]
+}
