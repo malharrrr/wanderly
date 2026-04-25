@@ -58,3 +58,16 @@ export interface Trip {
   interests: string[] // NEW
   createdAt: string
 }
+// NEW: for weather data
+export interface DailyWeather { 
+  date: string
+  maxTemp: number
+  minTemp: number
+  code: number
+  description: string
+}
+
+export interface WeatherForecast {
+  summary: string
+  daily: DailyWeather[]
+}

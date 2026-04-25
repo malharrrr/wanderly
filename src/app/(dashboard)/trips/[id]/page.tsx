@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { Trip, DayPlan, Activity } from '@/types'
+import { Trip, DayPlan, Activity, WeatherForecast } from '@/types'
 
 const TIER_STYLE = { budget: 'bg-green-50 text-green-700 border-green-200', mid: 'bg-blue-50 text-blue-700 border-blue-200', luxury: 'bg-purple-50 text-purple-700 border-purple-200' }
 const TIER_LABEL = { budget: 'Budget friendly', mid: 'Mid range', luxury: 'Luxury' }
@@ -12,11 +12,13 @@ export default function TripPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  const [weatherData, setWeatherData] = useState<string | null>(null)
+  
+  // new weather states
+  const [weatherData, setWeatherData] = useState<WeatherForecast | string | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
 
   // Tab & Action States
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'budget' | 'hotels' | 'packing'>('itinerary')
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'budget' | 'hotels' | 'packing' | 'weather'>('itinerary')
   const [regenLoading, setRegenLoading] = useState<number | null>(null)
   const [regenText, setRegenText] = useState<Record<number, string>>({})
 
@@ -109,6 +111,10 @@ export default function TripPage() {
   if (loading) return <div className="p-8 text-center">Loading...</div>
   if (!trip) return <div className="p-8 text-center">Trip not found.</div>
 
+  const headerWeatherString = typeof weatherData === 'string' 
+    ? weatherData 
+    : weatherData?.summary || 'Weather data unavailable.';
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -121,7 +127,7 @@ export default function TripPage() {
             {weatherLoading ? (
               <span className="animate-pulse">Fetching live weather...</span>
             ) : (
-              <span>{weatherData || 'Weather data unavailable.'}</span>
+              <span>{headerWeatherString}</span>
             )}
           </div>
 
@@ -137,9 +143,9 @@ export default function TripPage() {
       </div>
 
       {/* Tabs */}
-      <div className="px-8 flex gap-4 border-b border-amber-100 bg-white pt-2">
-        {(['itinerary', 'budget', 'hotels', 'packing'] as const).map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-medium capitalize border-b-2 transition-all ${activeTab === tab ? 'border-amber-600 text-amber-700' : 'border-transparent text-stone-400 hover:text-amber-600'}`}>
+      <div className="px-8 flex gap-4 border-b border-amber-100 bg-white pt-2 overflow-x-auto">
+        {(['itinerary', 'budget', 'hotels', 'packing', 'weather'] as const).map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-medium capitalize border-b-2 transition-all whitespace-nowrap ${activeTab === tab ? 'border-amber-600 text-amber-700' : 'border-transparent text-stone-400 hover:text-amber-600'}`}>
             {tab}
           </button>
         ))}
@@ -272,6 +278,36 @@ export default function TripPage() {
             </ul>
           </div>
         )}
+
+        {/*  Weather Tab  */}
+        {activeTab === 'weather' && (
+          <div className="max-w-4xl">
+            <h3 className="font-lora font-semibold text-xl text-amber-900 mb-6">7-Day Forecast for {trip.destination}</h3>
+            
+            {weatherLoading ? (
+              <div className="p-8 text-center text-stone-500">Loading forecast...</div>
+            ) : typeof weatherData === 'object' && weatherData?.daily ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                {weatherData.daily.map((day, i) => (
+                  <div key={i} className={`p-4 rounded-2xl border flex flex-col items-center text-center ${i === 0 ? 'bg-sky-50 border-sky-200' : 'bg-white border-amber-100'}`}>
+                    <div className="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">{i === 0 ? 'Today' : day.date}</div>
+                    <div className="text-3xl mb-3">{day.description.split(' ')[0]}</div> {/* Grabs the emoji */}
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-stone-800">{day.maxTemp}°</span>
+                      <span className="text-xs text-stone-400">{day.minTemp}°</span>
+                    </div>
+                    <div className="text-xs text-stone-500 mt-2 leading-tight">{day.description.substring(day.description.indexOf(' ') + 1)}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center text-stone-500 bg-white rounded-2xl border border-amber-100">
+                Detailed forecast is currently unavailable for this destination.
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   )
