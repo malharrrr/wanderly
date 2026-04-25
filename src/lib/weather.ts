@@ -1,25 +1,48 @@
-export async function getWeatherContext(destination: string, season: string): Promise<string> {
-  const apiKey = process.env.OPENWEATHERMAP_API_KEY;
-  
-  // If no API key is present, we return a generic context string.
-  // In production, Gemini will use this to reason about the climate.
-  if (!apiKey) {
-    console.log(`🌤️ No Weather API key. Simulating climate context for ${destination} in ${season}.`);
-    return `Assume typical historical weather for ${destination} during ${season}. Plan accordingly.`;
-  }
+function getWeatherDescription(code: number): string {
+  if (code === 0) return '☀️ Clear sky'
+  if (code === 1 || code === 2 || code === 3) return '⛅️ Partly cloudy'
+  if (code >= 45 && code <= 48) return '🌫️ Foggy'
+  if (code >= 51 && code <= 67) return '🌧️ Rainy'
+  if (code >= 71 && code <= 77) return '❄️ Snowing'
+  if (code >= 95 && code <= 99) return '⛈️ Thunderstorms'
+  return '🌤️ Variable'
+}
 
+export async function getWeatherContext(destination: string, season: string) {
   try {
-    const geoRes = await fetch(`http://api.openweathermap.org/geo/1.0/direct?q=${destination}&limit=1&appid=${apiKey}`);
-    const geoData = await geoRes.json();
-    if (!geoData.length) return 'Weather data unavailable.';
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destination)}&count=1&language=en&format=json`
+    const geoRes = await fetch(geoUrl, { next: { revalidate: 3600 } }) // Cache for 1 hour
+    const geoData = await geoRes.json()
 
-    const { lat, lon } = geoData[0];
-    const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${apiKey}`);
-    const weatherData = await weatherRes.json();
+    if (!geoData.results || geoData.results.length === 0) {
+      throw new Error("Location not found")
+    }
 
-    return `Current live weather in ${destination}: ${weatherData.weather[0].description}, ${Math.round(weatherData.main.temp)}°C. If the trip is soon, prioritize activities suited for this weather.`;
+    const { latitude, longitude, name, country } = geoData.results[0]
+
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`
+    const weatherRes = await fetch(weatherUrl, { next: { revalidate: 1800 } }) // Cache for 30 mins
+    const weatherData = await weatherRes.json()
+
+    if (!weatherData.current || !weatherData.daily) {
+      throw new Error("Weather data unavailable")
+    }
+
+    const currentTemp = Math.round(weatherData.current.temperature_2m)
+    const currentWeatherStr = getWeatherDescription(weatherData.current.weather_code)
+
+    const maxTemps = weatherData.daily.temperature_2m_max
+    const minTemps = weatherData.daily.temperature_2m_min
+    const avgMax = Math.round(maxTemps.reduce((a: number, b: number) => a + b, 0) / maxTemps.length)
+    const avgMin = Math.round(minTemps.reduce((a: number, b: number) => a + b, 0) / minTemps.length)
+
+    const weatherContextStr = `${currentWeatherStr}, ${currentTemp}°C in ${name}. 7-day forecast ranges from ${avgMin}°C to ${avgMax}°C.`
+
+    console.log(`🌤️ Fetched live weather for ${name}, ${country}: ${currentTemp}°C`)
+    return weatherContextStr
+
   } catch (error) {
-    console.error('Weather fetch error:', error);
-    return 'Weather data unavailable.';
+    console.log(`⚠️ Could not fetch live weather for ${destination}. Simulating based on season...`)
+    return `Assume typical historical weather for ${destination} during ${season}. Plan accordingly.`
   }
 }
