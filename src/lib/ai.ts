@@ -69,7 +69,7 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
     try {
       console.log(' Trying Gemini...');
       const response = await gemini.models.generateContent({
-        model: "gemini-3.1-flash-lite-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt,
         config: { responseMimeType: "application/json" }
       });
