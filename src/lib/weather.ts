@@ -10,7 +10,7 @@ function getWeatherDescription(code: number): string {
   return '🌤️ Variable'
 }
 
-export async function getWeatherContext(destinationsString: string, season: string): Promise<WeatherLocationForecast[]> {
+export async function getWeatherContext(destinationsString: string): Promise<WeatherLocationForecast[]> {
   const destinations = destinationsString.split(/,| and /).map(d => d.trim()).filter(Boolean);
 
   try {

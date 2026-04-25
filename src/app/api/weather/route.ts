@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const weather = await getWeatherContext(destinations, season)
+    const weather = await getWeatherContext(destinations)
     return NextResponse.json({ weather })
   } catch (error) {
     return NextResponse.json({ error: 'Failed to fetch weather' }, { status: 500 })
