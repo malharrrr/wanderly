@@ -21,6 +21,14 @@ RUN npm run build
 
 FROM node:20-alpine AS runner
 RUN apk update && apk upgrade --no-cache
+
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -f /usr/local/bin/npm \
+    && rm -f /usr/local/bin/npx \
+    && rm -rf /opt/yarn* \
+    && rm -f /usr/local/bin/yarn \
+    && rm -f /usr/local/bin/yarnpkg
+
 WORKDIR /app
 
 ENV NODE_ENV=production
