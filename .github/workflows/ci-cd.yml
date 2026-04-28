@@ -1,7 +1,5 @@
 name: Wanderly CI/CD Pipeline
 
-# trigger the workflow when code is pushed to the main branch
-# or when a pull request is opened against the main branch
 on:
   push:
     branches: [ "main" ]
@@ -11,13 +9,14 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-scan-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write 
+      packages: write
 
     steps:
       - name: Checkout repository
@@ -26,11 +25,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🏗️ Build Docker image locally
+      - name: Build Docker image locally
         run: |
           docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
 
-      - name: 🛡️ Run Trivy Vulnerability Scanner
+      - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
@@ -51,9 +50,6 @@ jobs:
       - name: Push image to Registry
         if: github.event_name != 'pull_request'
         run: |
-          # Push the specific commit hash tag
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          
-          # Tag it as 'latest' and push again
           docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
