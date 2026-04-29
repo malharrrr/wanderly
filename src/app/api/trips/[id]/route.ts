@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import TripModel from '@/models/Trip'
 import { regenerateDay, getAlternativeActivities } from '@/lib/ai'
+import { pusherServer } from '@/lib/pusher'
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -20,8 +21,8 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Trip not found' }, { status: 404 })
   }
 
-  // ensure user is either the owner or an invited collaborator
-  const isOwner = trip.userId.toString() === (session.user as any).id
+  // ensure the user is either the owner or a collaborator
+  const isOwner = (trip as any).userId.toString() === (session.user as any).id
   const isCollaborator = trip.collaborators?.includes(session.user.email)
   
   if (!isOwner && !isCollaborator) {
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const userEmail = session.user.email
 
   await connectDB()
-
+  
   const trip = await TripModel.findById(id)
   if (!trip) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
@@ -52,11 +53,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const body = await req.json()
   const { action, dayNumber, activityId, activityName, instruction, newActivity } = body
 
+
   if (action === 'add_collaborator') {
     if (!trip.collaborators) trip.collaborators = []
     if (!trip.collaborators.includes(body.email)) {
       trip.collaborators.push(body.email)
       await trip.save()
+      await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     }
     return NextResponse.json(trip)
   }
@@ -69,6 +72,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       createdBy: userEmail
     })
     await trip.save()
+    await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     return NextResponse.json(trip)
   }
 
@@ -77,15 +81,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const poll = trip.polls.id(body.pollId)
     
     if (poll) {
-      // remove user's previous vote from all options in this poll
       poll.options.forEach((opt: any) => {
         opt.votes = opt.votes.filter((v: string) => v !== userEmail)
       })
-      // add vote to the new selected option
       const selectedOption = poll.options.id(body.optionId)
       if (selectedOption) selectedOption.votes.push(userEmail)
       
       await trip.save()
+      await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     }
     return NextResponse.json(trip)
   }
@@ -98,12 +101,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       paidBy: userEmail,
     })
     await trip.save()
+    await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     return NextResponse.json(trip)
   }
 
   if (action === 'toggle_share') {
     trip.isPublic = !trip.isPublic
     await trip.save()
+    await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     return NextResponse.json({ isPublic: trip.isPublic, shareSlug: trip.shareSlug });
   }
 
@@ -130,6 +135,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
     await trip.save()
+    await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     return NextResponse.json(trip);
   }
 
@@ -139,6 +145,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       dayPlan.activities = dayPlan.activities.filter((a: any) => a.id !== activityId)
     }
     await trip.save()
+    await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     return NextResponse.json(trip);
   }
 
@@ -148,6 +155,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       dayPlan.activities.push({ id: `act_${dayNumber}_${Date.now()}`, name: activityName, time: 'Flexible', duration: '', notes: '' })
     }
     await trip.save()
+    await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
     return NextResponse.json(trip);
   }
 
@@ -161,6 +169,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       if (idx !== -1) trip.itinerary[idx] = newDay
       
       await trip.save()
+      await pusherServer.trigger(`trip-${id}`, 'trip-updated', {}) 
       return NextResponse.json(trip);
     } catch (err) {
       console.error('Regenerate day error:', err)
@@ -184,8 +193,10 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   await connectDB()
   
   const trip = await TripModel.findOneAndDelete({ _id: id, userId: (session.user as any).id })
+
   if (!trip) {
     return NextResponse.json({ error: 'Trip not found or unauthorized' }, { status: 404 })
   }
-    return NextResponse.json({ message: 'Trip deleted successfully' })
+
+  return NextResponse.json({ message: 'Trip deleted successfully' })
 }

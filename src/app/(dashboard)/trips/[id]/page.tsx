@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Trip, DayPlan, Activity, WeatherLocationForecast } from '@/types'
+import { pusherClient } from '@/lib/pusher' 
 
 const TIER_STYLE = { budget: 'bg-green-50 text-green-700 border-green-200', mid: 'bg-blue-50 text-blue-700 border-blue-200', luxury: 'bg-purple-50 text-purple-700 border-purple-200' }
 const TIER_LABEL = { budget: 'Budget friendly', mid: 'Mid range', luxury: 'Luxury' }
@@ -49,9 +50,17 @@ export default function TripPage() {
 
   useEffect(() => { 
     fetchTrip() 
-    const syncInterval = setInterval(() => fetchTrip(true), 5000)
-    return () => clearInterval(syncInterval)
-  }, [fetchTrip])
+
+    const channel = pusherClient.subscribe(`trip-${id}`)
+
+    channel.bind('trip-updated', () => {
+      fetchTrip(true) 
+    })
+
+    return () => {
+      pusherClient.unsubscribe(`trip-${id}`)
+    }
+  }, [fetchTrip, id])
 
   async function patch(body: object) {
     const res = await fetch(`/api/trips/${id}`, {
@@ -150,7 +159,6 @@ export default function TripPage() {
       : 'Weather data unavailable.';
 
   const totalExpenses = trip.expenses?.reduce((sum, e) => sum + e.amount, 0) || 0;
-  // collaborators + 1 (the trip owner)
   const totalPeople = (trip.collaborators?.length || 0) + 1;
 
   return (
@@ -186,7 +194,7 @@ export default function TripPage() {
 
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-100 rounded-lg text-xs text-green-800">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Live Sync On
+            <span className="w-2 h-2 rounded-full bg-green-500"></span> Live WebSockets
           </div>
           
           {trip.bestTimeToVisit && (
@@ -304,7 +312,6 @@ export default function TripPage() {
                         <div className="flex justify-between items-center text-sm relative z-10">
                           <span className="font-medium text-stone-800 group-hover:text-amber-900 transition-colors">{opt.text}</span>
                           <div className="flex items-center gap-2">
-                            {/* show voters' initials if there are votes */}
                             <div className="flex -space-x-1.5 mr-2">
                               {opt.votes.slice(0, 3).map((voter: string, vIndex: number) => (
                                 <div key={vIndex} className="w-5 h-5 rounded-full bg-stone-300 border border-white flex items-center justify-center text-[9px] text-stone-700 font-bold" title={voter}>
@@ -372,7 +379,7 @@ export default function TripPage() {
           </div>
         )}
 
-        {/*  budget tab */}
+        {/* budget tab */}
         {activeTab === 'budget' && (
           <div className="max-w-md space-y-6">
             <div className="card">
@@ -394,30 +401,6 @@ export default function TripPage() {
                   <span className="text-amber-700 text-base">${(trip.budget?.total || 0).toLocaleString()}</span>
                 </div>
               </div>
-            </div>
-
-            <div className="card bg-sky-50 border-sky-100">
-              <h3 className="font-lora text-base font-semibold text-sky-900 mb-2">✈️ Book your flights</h3>
-              {trip.origin ? (
-                <>
-                  <p className="text-sm text-sky-700 mb-4">
-                    Ready to book your trip from <strong>{trip.origin}</strong> to <strong>{trip.destination}</strong>?
-                  </p>
-                  <a 
-                    href={`https://www.google.com/travel/flights?q=Flights%20to%20${encodeURIComponent(trip.destination)}%20from%20${encodeURIComponent(trip.origin)}`}
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="block w-full text-center px-4 py-2.5 bg-sky-600 text-white rounded-xl font-medium hover:bg-sky-700 transition-colors shadow-sm"
-                  >
-                    Search on Google Flights ↗
-                  </a>
-                </>
-              ) : (
-                <div className="text-sm text-sky-700">
-                  <p className="mb-2">We noticed you didn't include a departure city in your prompt.</p>
-                  <p className="opacity-80 italic">Tip: Next time, include "leaving from [City]" to get direct flight booking links!</p>
-                </div>
-              )}
             </div>
           </div>
         )}
