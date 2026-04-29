@@ -42,6 +42,9 @@ export interface Hotel {
 export interface Trip {
   _id: string
   userId: string
+  collaborators: string[] // NEW: array of user emails allowed to edit
+  polls: Poll[]           // NEW: group voting
+  expenses: Expense[]    // NEW: shared expenses
   promptUsed: string // NEW
   origin?: string // NEW
   destination: string
@@ -78,4 +81,25 @@ export interface WeatherLocationForecast {
   location: string
   summary: string
   daily: DailyWeather[]
+}
+
+export interface PollOption {
+  _id?: string;
+  text: string;
+  votes: string[]; // array of user emails or IDs
+}
+
+export interface Poll {
+  _id?: string;
+  question: string;
+  options: PollOption[];
+  createdBy: string;
+}
+
+export interface Expense {
+  _id?: string;
+  description: string;
+  amount: number;
+  paidBy: string; // user email or name
+  date: string;
 }

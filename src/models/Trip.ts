@@ -1,5 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose'
-import { DayPlan, Budget, Hotel } from '@/types'
+import { DayPlan, Budget, Hotel, Poll, Expense } from '@/types'
 
 export interface ITrip extends Document {
   userId: mongoose.Types.ObjectId
@@ -20,6 +20,9 @@ export interface ITrip extends Document {
   budgetType: string
   interests: string[]
   createdAt: Date
+  collaborators: string[]
+  polls: Poll[]
+  expenses: Expense[]
 }
 
 const ActivitySchema = new Schema({
@@ -54,6 +57,24 @@ const HotelSchema = new Schema({
   description: String,
 }, { _id: false })
 
+const PollOptionSchema = new Schema({
+  text: String,
+  votes: [String], //user emails who voted
+}, { _id: true })
+
+const PollSchema = new Schema({
+  question: String,
+  options: [PollOptionSchema],
+  createdBy: String,
+}, { _id: true })
+
+const ExpenseSchema = new Schema({
+  description: String,
+  amount: Number,
+  paidBy: String,
+  date: { type: Date, default: Date.now },
+}, { _id: true })
+
 const TripSchema = new Schema<ITrip>({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   promptUsed: { type: String, required: true },
@@ -73,6 +94,9 @@ const TripSchema = new Schema<ITrip>({
   budgetType: { type: String, default: 'medium' },
   interests: [String],
   createdAt: { type: Date, default: Date.now },
+  collaborators: [{ type: String }],
+  polls: [PollSchema],
+  expenses: [ExpenseSchema],
 })
 
 export default mongoose.models.Trip || mongoose.model<ITrip>('Trip', TripSchema)
