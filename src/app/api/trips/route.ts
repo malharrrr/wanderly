@@ -7,12 +7,18 @@ import { generateTripPlan } from '@/lib/ai'
 
 export async function GET() {
   const session = await getServerSession(authOptions)
-  if (!session?.user) {
+  if (!session?.user?.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   await connectDB()
-  const trips = await TripModel.find({ userId: (session.user as any).id })
+  
+  const trips = await TripModel.find({
+    $or: [
+      { userId: (session.user as any).id },
+      { collaborators: session.user.email }
+    ]
+  })
     .sort({ createdAt: -1 })
     .lean()
 
@@ -68,7 +74,7 @@ Interests: ${interests && interests.length > 0 ? interests.join(', ') : 'Not spe
       promptUsed: prompt, 
       origin: generated.metadata.origin,
       destination: generated.metadata.destination,
-      bestTimeToVisit: generated.metadata.bestTimeToVisit, //new AI suggestion
+      bestTimeToVisit: generated.metadata.bestTimeToVisit,
       days: generated.metadata.days,
       travelers: generated.metadata.travelers,
       season: generated.metadata.season,

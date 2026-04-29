@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Trip, DayPlan, Activity, WeatherLocationForecast } from '@/types'
-import { pusherClient } from '@/lib/pusher-client' 
+import { getPusherClient } from '@/lib/pusher-client'
 
 const TIER_STYLE = { budget: 'bg-green-50 text-green-700 border-green-200', mid: 'bg-blue-50 text-blue-700 border-blue-200', luxury: 'bg-purple-50 text-purple-700 border-purple-200' }
 const TIER_LABEL = { budget: 'Budget friendly', mid: 'Mid range', luxury: 'Luxury' }
@@ -13,7 +13,7 @@ export default function TripPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  // weather states
+  // Weather states
   const [weatherData, setWeatherData] = useState<WeatherLocationForecast[] | string | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
   const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0)
@@ -23,7 +23,7 @@ export default function TripPage() {
   const [regenText, setRegenText] = useState<Record<number, string>>({})
   const [swapLoading, setSwapLoading] = useState<string | null>(null)
   const [alternatives, setAlternatives] = useState<Record<string, Activity[]>>({})
-  // collaboration States
+  // Collaboration States
   const [inviteEmail, setInviteEmail] = useState('')
   const [newPollQ, setNewPollQ] = useState('')
   const [newPollOpts, setNewPollOpts] = useState(['', ''])
@@ -51,14 +51,18 @@ export default function TripPage() {
   useEffect(() => { 
     fetchTrip() 
 
-    const channel = pusherClient.subscribe(`trip-${id}`)
+    const pusher = getPusherClient()
+    if (!pusher) return 
+
+    const channel = pusher.subscribe(`trip-${id}`)
 
     channel.bind('trip-updated', () => {
       fetchTrip(true) 
     })
 
     return () => {
-      pusherClient.unsubscribe(`trip-${id}`)
+      pusher.unsubscribe(`trip-${id}`)
+      pusher.disconnect()
     }
   }, [fetchTrip, id])
 
@@ -193,10 +197,6 @@ export default function TripPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-100 rounded-lg text-xs text-green-800">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span> Live WebSockets
-          </div>
-          
           {trip.bestTimeToVisit && (
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800">
               🗓 {trip.bestTimeToVisit}
@@ -279,7 +279,6 @@ export default function TripPage() {
           </div>
         )}
 
-        {/* polls & voting tab */}
         {activeTab === 'polls' && (
           <div className="max-w-2xl space-y-6">
             <div className="card bg-amber-50 border-amber-200">
@@ -331,7 +330,6 @@ export default function TripPage() {
           </div>
         )}
 
-        {/* shared logistics & splitwise tab */}
         {activeTab === 'splitwise' && (
           <div className="max-w-2xl space-y-6">
             <div className="grid grid-cols-2 gap-4">
@@ -378,8 +376,7 @@ export default function TripPage() {
             </div>
           </div>
         )}
-
-        {/* budget tab */}
+\
         {activeTab === 'budget' && (
           <div className="max-w-md space-y-6">
             <div className="card">
