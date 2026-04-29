@@ -6,6 +6,7 @@ export interface ITrip extends Document {
   promptUsed: string
   origin?: string
   destination: string
+  bestTimeToVisit: string
   days: number
   travelers: number
   season: string
@@ -58,6 +59,7 @@ const TripSchema = new Schema<ITrip>({
   promptUsed: { type: String, required: true },
   origin: { type: String, default: null }, 
   destination: { type: String, required: true },
+  bestTimeToVisit: { type: String, default: '' }, // new
   days: { type: Number, required: true },
   travelers: { type: Number, default: 1 },
   season: { type: String, default: 'Any' },

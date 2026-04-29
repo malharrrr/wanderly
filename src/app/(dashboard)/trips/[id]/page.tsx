@@ -12,7 +12,6 @@ export default function TripPage() {
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
- 
   const [weatherData, setWeatherData] = useState<WeatherLocationForecast[] | string | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
   const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0)
@@ -127,11 +126,19 @@ export default function TripPage() {
           <h1 className="page-title">{trip.destination}</h1>
           <p className="page-subtitle mb-2">{trip.days} days · {trip.vibe} · {trip.season}</p>
           
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-50 border border-sky-100 rounded-lg text-xs text-sky-800">
-            {weatherLoading ? (
-              <span className="animate-pulse">Fetching live weather...</span>
-            ) : (
-              <span>{headerWeatherString}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-sky-50 border border-sky-100 rounded-lg text-xs text-sky-800">
+              {weatherLoading ? (
+                <span className="animate-pulse">Fetching live weather...</span>
+              ) : (
+                <span>{headerWeatherString}</span>
+              )}
+            </div>
+
+            {trip.bestTimeToVisit && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-800">
+                🗓 {trip.bestTimeToVisit}
+              </div>
             )}
           </div>
 
@@ -243,8 +250,6 @@ export default function TripPage() {
                 </div>
               </div>
             </div>
-
-            {/* flightbooking widget */}
             <div className="card bg-sky-50 border-sky-100">
               <h3 className="font-lora text-base font-semibold text-sky-900 mb-2">✈️ Book your flights</h3>
               

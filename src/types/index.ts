@@ -45,6 +45,7 @@ export interface Trip {
   promptUsed: string // NEW
   origin?: string // NEW
   destination: string
+  bestTimeToVisit?: string // NEW
   days: number
   travelers: number // NEW
   season: string // NEW

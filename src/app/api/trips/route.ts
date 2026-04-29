@@ -27,13 +27,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json()
-    const { prompt } = body
+    const { prompt, travelDate, budgetTier, interests } = body
 
     if (!prompt) {
       return NextResponse.json({ error: 'Prompt is required' }, { status: 400 })
     }
 
-    const generated = await generateTripPlan(prompt)
+    const fullPrompt = `
+User Request: ${prompt}
+Travel Date: ${travelDate || 'Not specified'}
+Budget Tier: ${budgetTier || 'Not specified'}
+Interests: ${interests && interests.length > 0 ? interests.join(', ') : 'Not specified'}
+    `.trim();
+
+    const generated = await generateTripPlan(fullPrompt)
     
     if (generated.hotels && Array.isArray(generated.hotels)) {
       generated.hotels = generated.hotels.map((hotel: any) => {
@@ -52,22 +59,22 @@ export async function POST(req: NextRequest) {
       })
     }
     
-    // Create a unique slug for public sharing
     const shareSlug = `${generated.metadata.destination.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Math.random().toString(36).substring(2, 8)}`
 
     await connectDB()
 
     const trip = await TripModel.create({
       userId: (session.user as any).id,
-      promptUsed: prompt,
+      promptUsed: prompt, 
       origin: generated.metadata.origin,
       destination: generated.metadata.destination,
+      bestTimeToVisit: generated.metadata.bestTimeToVisit, //new AI suggestion
       days: generated.metadata.days,
       travelers: generated.metadata.travelers,
       season: generated.metadata.season,
       vibe: generated.metadata.vibe,
-      budgetType: generated.metadata.budgetType,
-      interests: generated.metadata.interests,
+      budgetType: budgetTier || 'medium',
+      interests: interests || [],
       itinerary: generated.itinerary,
       budget: generated.budget,
       hotels: generated.hotels,

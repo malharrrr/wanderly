@@ -23,6 +23,7 @@ const TripResponseSchema = z.object({
   metadata: z.object({
     origin: z.string().nullable().optional().transform(v => v || ""),
     destination: z.string().nullable().transform(v => v || "Not specified"),
+    bestTimeToVisit: z.string().nullable().optional().transform(v => v || ""), // new
     days: z.number().nullable().transform(v => v || 3),
     travelers: z.number().nullable().transform(v => v || 1),
     season: z.string().nullable().transform(v => v || ""),
@@ -119,6 +120,7 @@ Return ONLY valid JSON with this exact structure (no markdown fences):
   "metadata": {
     "origin": "Extracted departure city if mentioned, otherwise null", 
     "destination": "Extracted main destination. If multiple cities, return as a comma-separated string (e.g., 'Tokyo, Kyoto, Osaka')",
+    "bestTimeToVisit": "A short, helpful sentence suggesting the best months or season to visit this destination based on weather/events.",
     "days": 5, 
     "travelers": 2, 
     "season": "Extracted season",
