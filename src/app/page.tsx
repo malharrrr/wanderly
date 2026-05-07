@@ -59,7 +59,7 @@ export default async function LandingPage() {
 
           <div className="pt-8 flex flex-wrap justify-center lg:justify-start items-center gap-4 sm:gap-8 border-t border-amber-200/60 w-full">
             <div>
-              <p className="text-xl sm:text-2xl font-lora font-bold text-amber-900">10k+</p>
+              <p className="text-xl sm:text-2xl font-lora font-bold text-amber-900">10+</p>
               <p className="text-[10px] sm:text-xs text-stone-500 font-medium uppercase tracking-wider">Trips Planned</p>
             </div>
             <div className="w-px h-8 sm:h-10 bg-amber-200/60"></div>
