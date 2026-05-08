@@ -376,7 +376,6 @@ export default function TripPage() {
             </div>
           </div>
         )}
-\
         {activeTab === 'budget' && (
           <div className="max-w-md space-y-6">
             <div className="card">
