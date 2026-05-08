@@ -99,4 +99,7 @@ const TripSchema = new Schema<ITrip>({
   expenses: [ExpenseSchema],
 })
 
+TripSchema.index({ userId: 1, createdAt: -1 });
+TripSchema.index({ collaborators: 1, createdAt: -1 });
+
 export default mongoose.models.Trip || mongoose.model<ITrip>('Trip', TripSchema)
