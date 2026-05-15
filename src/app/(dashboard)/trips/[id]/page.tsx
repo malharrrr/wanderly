@@ -92,7 +92,6 @@ export default function TripPage() {
       const doc = new jsPDF();
       let yPos = 20;
 
-      // 1. Title & Trip Details
       doc.setFontSize(22);
       doc.setTextColor(180, 83, 9); 
       doc.text(`Wanderly Itinerary: ${trip.destination}`, 14, yPos);
@@ -112,13 +111,13 @@ export default function TripPage() {
         autoTable(doc, {
           startY: yPos,
           head: [[`Day ${day.day}: ${day.theme}`]],
-          headStyles: { fillColor: [251, 191, 36], textColor: [0, 0, 0], fontSize: 12 }, // Amber-400
+          headStyles: { fillColor: [251, 191, 36], textColor: [0, 0, 0], fontSize: 12 },
           body: day.activities.map(act => [
             `${act.time} - ${act.name}\nCost: ${act.costEstimate || 'N/A'}\n${act.notes || ''}`
           ]),
           bodyStyles: { valign: 'top' },
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { yPos = data.cursor.y; } // Track where the table ends
+          didDrawPage: (data) => { yPos = data.cursor.y; } 
         });
         yPos += 10;
       });
@@ -127,7 +126,7 @@ export default function TripPage() {
         autoTable(doc, {
           startY: yPos,
           head: [['Hotels & Accommodation', 'Tier', 'Price/Night']],
-          headStyles: { fillColor: [56, 189, 248] }, // Sky-400
+          headStyles: { fillColor: [56, 189, 248] }, 
           body: trip.hotels.map(h => [
             `${h.name}\n${h.description || ''}`, 
             h.tier.toUpperCase(), 
@@ -143,7 +142,7 @@ export default function TripPage() {
         autoTable(doc, {
           startY: yPos,
           head: [['Estimated Budget Breakdown', 'Amount']],
-          headStyles: { fillColor: [74, 222, 128] }, // Green-400
+          headStyles: { fillColor: [74, 222, 128] }, 
           body: [
             ['Flights', `$${trip.budget.flights}`],
             ['Accommodation', `$${trip.budget.accommodation}`],
@@ -156,8 +155,6 @@ export default function TripPage() {
         });
         yPos += 10;
       }
-
-      // 5. Packing List
       if (trip.packingNotes && trip.packingNotes.length > 0) {
         autoTable(doc, {
           startY: yPos,
