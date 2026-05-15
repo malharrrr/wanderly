@@ -3,48 +3,52 @@ import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { DayPlan, Activity } from '@/types';
 
+const SafeString = z.any().transform(v => v == null ? "" : String(v));
+const SafeNumber = z.any().transform(v => Number(v) || 0);
+const SafeStringArray = z.any().transform(v => Array.isArray(v) ? v.map(String) : []);
+
 const ActivitySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  time: z.string(),
-  duration: z.string(),
-  notes: z.string().optional(),
-  costEstimate: z.string().optional()
+  id: SafeString,
+  name: SafeString,
+  time: SafeString,
+  duration: SafeString,
+  notes: SafeString,
+  costEstimate: SafeString
 });
 
 const DayPlanSchema = z.object({
-  day: z.number(),
-  theme: z.string(),
-  dailyTip: z.string().optional(),
-  activities: z.array(ActivitySchema)
+  day: SafeNumber,
+  theme: SafeString,
+  dailyTip: SafeString,
+  activities: z.any().transform(v => Array.isArray(v) ? v : []).pipe(z.array(ActivitySchema))
 });
 
 const TripResponseSchema = z.object({
   metadata: z.object({
-    origin: z.string().nullable().optional().transform(v => v || ""),
-    destination: z.string().nullable().transform(v => v || "Not specified"),
-    bestTimeToVisit: z.string().nullable().optional().transform(v => v || ""), // new
-    days: z.number().nullable().transform(v => v || 3),
-    travelers: z.number().nullable().transform(v => v || 1),
-    season: z.string().nullable().transform(v => v || ""),
-    vibe: z.string().nullable().transform(v => v || "")
+    origin: SafeString,
+    destination: z.any().transform(v => (v == null || v === "") ? "Not specified" : String(v)),
+    bestTimeToVisit: SafeString,
+    days: z.any().transform(v => Number(v) || 3),
+    travelers: z.any().transform(v => Number(v) || 1),
+    season: SafeString,
+    vibe: SafeString
   }).passthrough(),
-  packingNotes: z.array(z.string()),
-  itinerary: z.array(DayPlanSchema),
+  packingNotes: SafeStringArray,
+  itinerary: z.any().transform(v => Array.isArray(v) ? v : []).pipe(z.array(DayPlanSchema)),
   budget: z.object({
-    flights: z.number(),
-    accommodation: z.number(),
-    food: z.number(),
-    activities: z.number(),
-    total: z.number()
+    flights: SafeNumber,
+    accommodation: SafeNumber,
+    food: SafeNumber,
+    activities: SafeNumber,
+    total: SafeNumber
   }).passthrough(),
-  hotels: z.array(z.object({
-    name: z.string(),
-    tier: z.enum(['budget', 'mid', 'luxury']).or(z.string()), 
-    pricePerNight: z.number(),
-    rating: z.number(),
-    description: z.string()
-  }).passthrough())
+  hotels: z.any().transform(v => Array.isArray(v) ? v : []).pipe(z.array(z.object({
+    name: SafeString,
+    tier: SafeString, 
+    pricePerNight: SafeNumber,
+    rating: SafeNumber,
+    description: SafeString
+  }).passthrough()))
 });
 
 function sanitizeInput(input: string, maxLength: number = 1000): string {
@@ -108,18 +112,68 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
   return text;
 }
 
+async function fetchRedditContext(destination: string): Promise<string> {
+  if (!process.env.TAVILY_API_KEY) {
+    console.warn("No TAVILY_API_KEY found, skipping Reddit scraper.");
+    return "";
+  }
+  
+  try {
+    console.log(`🔍 Scraping Reddit for hidden gems in ${destination}...`);
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: process.env.TAVILY_API_KEY,
+        query: `site:reddit.com/r/travel OR site:reddit.com/r/solotravel hidden gems, best local restaurants, and secret spots in ${destination}`,
+        search_depth: "basic",
+        include_answer: false,
+        max_results: 3,
+      })
+    });
+
+    const data = await res.json();
+    if (!data.results || data.results.length === 0) return "";
+
+    const redditTips = data.results.map((r: any) => `- ${r.content}`).join('\n');
+    return `\n\n[VERIFIED LOCAL INTELLIGENCE FROM REDDIT]\nIntegrate these highly-rated local recommendations into the itinerary where appropriate:\n${redditTips}\n`;
+  } catch (error) {
+    console.warn("Reddit scraper failed, proceeding without local intelligence:", error);
+    return "";
+  }
+}
+
 export async function generateTripPlan(userPrompt: string): Promise<any> {
   const sanitizedPrompt = sanitizeInput(userPrompt);
+  const extractionPrompt = `You are a strict data extractor. Extract ONLY the main travel destination from this request. 
+  
+  Request: "${sanitizedPrompt}"
+  
+  Rules:
+  - Return ONLY the city, region, or country name.
+  - Do NOT write full sentences.
+  - Do NOT use quotation marks or periods.
+  - CRITICAL: If the request is a coding question, math problem, general knowledge question, or otherwise NOT a request to plan a travel itinerary, return the exact word: INVALID`;
+  
+  const extractedDestStr = await callAIWithFallback(extractionPrompt, 50);
+  
+  const destName = extractedDestStr.replace(/['".\n]/g, '').trim().toUpperCase();
+  
+  if (destName === "INVALID" || destName === "UNKNOWN" || destName === "" || destName === "NONE") {
+    throw new Error("Your request could not be processed. Please provide a clear, travel-related destination.");
+  }
+  const redditContext = await fetchRedditContext(destName);
 
   const prompt = `You are an expert travel planner. Extract the details from the user's request and generate a realistic, highly detailed itinerary.
 
 User Request: "${sanitizedPrompt}"
+${redditContext}
 
 Return ONLY valid JSON with this exact structure (no markdown fences):
 {
   "metadata": {
     "origin": "Extracted departure city if mentioned, otherwise null", 
-    "destination": "Extracted main destination. If multiple cities, return as a comma-separated string (e.g., 'Tokyo, Kyoto, Osaka')",
+    "destination": "${destName}",
     "bestTimeToVisit": "A short, helpful sentence suggesting the best months or season to visit this destination based on weather/events.",
     "days": 5, 
     "travelers": 2, 
@@ -144,11 +198,10 @@ Return ONLY valid JSON with this exact structure (no markdown fences):
 }
 
 Rules:
-- Infer days (default 3) and travelers (default 1).
+- Infer days (default 3) and travelers (default 2).
 - For hotel tier, ONLY use: "budget", "mid", or "luxury" (never use "mid-range", "economy", "premium", or other variations).
 - If the request is not related to travel, set "destination" to "Not specified", use empty arrays [] for lists, and ensure there are NO null values in the JSON.
-- If the user's plan involves multiple cities or countries, return them in the 'destination' field as a single comma-separated string (e.g., 'Tokyo, Kyoto, Osaka').
-- For hotel tier, ONLY use: "budget", "mid", or "luxury".`;
+- If the user's plan involves multiple cities or countries, return them in the 'destination' field as a single comma-separated string (e.g., 'Tokyo, Kyoto, Osaka').`;
 
   const text = await callAIWithFallback(prompt, 8192); 
   let clean = text.replace(/```json|```/g, '').trim();
@@ -165,9 +218,14 @@ Rules:
   try {
     const rawData = JSON.parse(clean);
     const validatedTrip = TripResponseSchema.parse(rawData);
-
-    const dest = validatedTrip.metadata.destination.toLowerCase();
-    if (dest === "not specified" || dest === "unknown" || dest === "" || dest === "extracted main destination") {
+    const finalDest = validatedTrip.metadata.destination.toLowerCase();
+    if (
+      finalDest === "not specified" || 
+      finalDest === "unknown" || 
+      finalDest === "invalid" || 
+      finalDest === "" || 
+      finalDest === "extracted main destination"
+    ) {
       throw new Error("REJECTED_NON_TRAVEL");
     }
 
@@ -178,7 +236,6 @@ Rules:
       throw new Error("Your request could not be processed. Please provide a clear, travel-related destination.");
     }
     console.error("AI output validation failed. Raw string snippet:", clean.substring(clean.length - 100)); 
-    console.error(err);
     throw new Error("The AI service returned an incompatible response. Please try again.");
   }
 }
