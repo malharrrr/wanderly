@@ -85,6 +85,7 @@ Interests: ${interests && interests.length > 0 ? interests.join(', ') : 'Not spe
       budget: generated.budget,
       hotels: generated.hotels,
       packingNotes: generated.packingNotes,
+      localInsights: generated.localInsights || [],
       isPublic: false,
       shareSlug: shareSlug
     })

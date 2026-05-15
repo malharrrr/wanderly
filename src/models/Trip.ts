@@ -15,6 +15,7 @@ export interface ITrip extends Document {
   budget: Budget
   hotels: Hotel[]
   packingNotes: string[]
+  localInsights: string[]
   isPublic: boolean
   shareSlug: string
   budgetType: string
@@ -89,6 +90,7 @@ const TripSchema = new Schema<ITrip>({
   budget: BudgetSchema,
   hotels: [HotelSchema],
   packingNotes: [String],
+  localInsights: [String],
   isPublic: { type: Boolean, default: false },
   shareSlug: { type: String, unique: true, sparse: true },
   budgetType: { type: String, default: 'medium' },

@@ -13,13 +13,13 @@ export interface Activity {
   time: string
   duration: string
   notes?: string
-  costEstimate?: string // NEW
+  costEstimate?: string
 }
 
 export interface DayPlan {
   day: number
-  theme: string // NEW
-  dailyTip?: string // NEW
+  theme: string
+  dailyTip?: string
   activities: Activity[]
 }
 
@@ -42,28 +42,29 @@ export interface Hotel {
 export interface Trip {
   _id: string
   userId: string
-  collaborators: string[] // NEW: array of user emails allowed to edit
-  polls: Poll[]           // NEW: group voting
-  expenses: Expense[]    // NEW: shared expenses
-  promptUsed: string // NEW
-  origin?: string // NEW
+  collaborators: string[]
+  polls: Poll[]
+  expenses: Expense[]    
+  promptUsed: string
+  origin?: string 
   destination: string
-  bestTimeToVisit?: string // NEW
+  bestTimeToVisit?: string
   days: number
-  travelers: number // NEW
-  season: string // NEW
-  vibe: string // NEW
+  travelers: number
+  season: string
+  vibe: string
   itinerary: DayPlan[]
   budget: Budget
   hotels: Hotel[]
-  packingNotes: string[] // NEW
-  isPublic: boolean // NEW
-  shareSlug?: string // NEW
-  budgetType: string // NEW
-  interests: string[] // NEW
+  packingNotes: string[]
+  localInsights?: string[]
+  isPublic: boolean
+  shareSlug?: string
+  budgetType: string
+  interests: string[]
   createdAt: string
 }
-// NEW: for weather data
+
 export interface DailyWeather { 
   date: string
   maxTemp: number
@@ -76,7 +77,7 @@ export interface WeatherForecast {
   summary: string
   daily: DailyWeather[]
 }
-//represents a single city's forecast
+
 export interface WeatherLocationForecast {
   location: string
   summary: string

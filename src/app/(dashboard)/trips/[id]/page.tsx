@@ -20,7 +20,7 @@ export default function TripPage() {
   const [weatherLoading, setWeatherLoading] = useState(false)
   const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0)
   // Tab & Action States
-  const [activeTab, setActiveTab] = useState<'itinerary' | 'budget' | 'hotels' | 'packing' | 'weather' | 'polls' | 'splitwise'>('itinerary')
+  const [activeTab, setActiveTab] = useState<'itinerary' | 'insights' | 'budget' | 'hotels' | 'packing' | 'weather' | 'polls' | 'splitwise'>('itinerary')
   const [regenLoading, setRegenLoading] = useState<number | null>(null)
   const [regenText, setRegenText] = useState<Record<number, string>>({})
   const [swapLoading, setSwapLoading] = useState<string | null>(null)
@@ -308,7 +308,7 @@ export default function TripPage() {
       </div>
 
       <div className="px-8 flex gap-4 border-b border-amber-100 bg-white pt-2 overflow-x-auto shrink-0">
-        {(['itinerary', 'budget', 'hotels', 'packing', 'weather', 'polls', 'splitwise'] as const).map(tab => (
+        {(['itinerary', 'insights', 'budget', 'hotels', 'packing', 'weather', 'polls', 'splitwise'] as const).map(tab => (
           <button 
             key={tab} 
             onClick={() => setActiveTab(tab)} 
@@ -373,6 +373,32 @@ export default function TripPage() {
             ) : (
               <div className="text-center py-12 text-stone-500">No itinerary data available.</div>
             )}
+          </div>
+        )}
+        {activeTab === 'insights' && (
+          <div className="max-w-3xl space-y-6">
+            <div className="card bg-amber-50/50 border-amber-200">
+              <h3 className="font-lora font-semibold text-amber-900 mb-2 flex items-center gap-2">
+                🕵️‍♀️ Verified Local Intelligence
+              </h3>
+              <p className="text-sm text-amber-700 mb-6">
+                Our AI agents actively scanned Reddit travel communities to ground your itinerary in real, human-verified experiences. Here is the raw context used to generate your plan:
+              </p>
+              
+              {trip.localInsights && trip.localInsights.length > 0 ? (
+                <div className="space-y-4">
+                  {trip.localInsights.map((insight, i) => (
+                    <div key={i} className="text-sm text-stone-700 bg-white p-4 rounded-xl border border-amber-100 shadow-sm leading-relaxed">
+                      "{insight}"
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center p-8 bg-white rounded-xl border border-stone-200">
+                  <p className="text-stone-500 text-sm">No specific Reddit insights were found for this destination during generation.</p>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

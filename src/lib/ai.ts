@@ -99,7 +99,7 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
 
   console.log(' Using Claude as fallback...');
   const response = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: maxTokens,
     messages: [
       { role: "user", content: prompt },
@@ -112,10 +112,10 @@ async function callAIWithFallback(prompt: string, maxTokens: number = 2048): Pro
   return text;
 }
 
-async function fetchRedditContext(destination: string): Promise<string> {
+async function fetchRedditContext(destination: string): Promise<{ text: string, tips: string[] }> {
   if (!process.env.TAVILY_API_KEY) {
     console.warn("No TAVILY_API_KEY found, skipping Reddit scraper.");
-    return "";
+    return { text: "", tips: [] };
   }
   
   try {
@@ -133,17 +133,23 @@ async function fetchRedditContext(destination: string): Promise<string> {
     });
 
     const data = await res.json();
-    if (!data.results || data.results.length === 0) return "";
+    if (!data.results || data.results.length === 0) return { text: "", tips: [] };
 
-    const redditTips = data.results.map((r: any) => `- ${r.content}`).join('\n');
-    return `\n\n[VERIFIED LOCAL INTELLIGENCE FROM REDDIT]\nIntegrate these highly-rated local recommendations into the itinerary where appropriate:\n${redditTips}\n`;
+    const tips = data.results.map((r: any) => r.content);
+    const redditTipsStr = tips.map((t: string) => `- ${t}`).join('\n');
+    
+    return {
+      text: `\n\n[VERIFIED LOCAL INTELLIGENCE FROM REDDIT]\nIntegrate these highly-rated local recommendations into the itinerary where appropriate:\n${redditTipsStr}\n`,
+      tips: tips
+    };
   } catch (error) {
     console.warn("Reddit scraper failed, proceeding without local intelligence:", error);
-    return "";
+    return { text: "", tips: [] };
   }
 }
 
-export async function generateTripPlan(userPrompt: string): Promise<any> {
+export async function generateTripPlan(userPrompt: string): Promise<any> 
+{
   const sanitizedPrompt = sanitizeInput(userPrompt);
   const extractionPrompt = `You are a strict data extractor. Extract ONLY the main travel destination from this request. 
   
@@ -162,12 +168,12 @@ export async function generateTripPlan(userPrompt: string): Promise<any> {
   if (destName === "INVALID" || destName === "UNKNOWN" || destName === "" || destName === "NONE") {
     throw new Error("Your request could not be processed. Please provide a clear, travel-related destination.");
   }
-  const redditContext = await fetchRedditContext(destName);
-
+  const redditData = await fetchRedditContext(destName);
+  
   const prompt = `You are an expert travel planner. Extract the details from the user's request and generate a realistic, highly detailed itinerary.
 
 User Request: "${sanitizedPrompt}"
-${redditContext}
+${redditData.text}
 
 Return ONLY valid JSON with this exact structure (no markdown fences):
 {
@@ -228,9 +234,7 @@ Rules:
     ) {
       throw new Error("REJECTED_NON_TRAVEL");
     }
-
-    return validatedTrip;
-
+    return { ...validatedTrip, localInsights: redditData.tips };
   } catch (err: any) {
     if (err.message === "REJECTED_NON_TRAVEL") {
       throw new Error("Your request could not be processed. Please provide a clear, travel-related destination.");
