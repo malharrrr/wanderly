@@ -3,8 +3,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { Trip, DayPlan, Activity, WeatherLocationForecast } from '@/types'
 import { getPusherClient } from '@/lib/pusher-client'
-import { jsPDF } from 'jspdf'
-import { autoTable } from 'jspdf-autotable'
 
 const TIER_STYLE = { budget: 'bg-green-50 text-green-700 border-green-200', mid: 'bg-blue-50 text-blue-700 border-blue-200', luxury: 'bg-purple-50 text-purple-700 border-purple-200' }
 const TIER_LABEL = { budget: 'Budget friendly', mid: 'Mid range', luxury: 'Luxury' }
@@ -89,6 +87,10 @@ export default function TripPage() {
     setIsExporting(true);
     
     try {
+      const { jsPDF } = await import('jspdf');
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule;
+      
       const doc = new jsPDF();
       let yPos = 20;
 
