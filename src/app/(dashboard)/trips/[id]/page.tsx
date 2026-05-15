@@ -117,7 +117,7 @@ export default function TripPage() {
           ]),
           bodyStyles: { valign: 'top' },
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { yPos = data.cursor.y; } 
+          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
         });
         yPos += 10;
       });
@@ -133,7 +133,7 @@ export default function TripPage() {
             `$${h.pricePerNight}`
           ]),
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { yPos = data.cursor.y; }
+          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
         });
         yPos += 10;
       }
@@ -151,7 +151,7 @@ export default function TripPage() {
             ['Total', `$${trip.budget.total}`]
           ],
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { yPos = data.cursor.y; }
+          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
         });
         yPos += 10;
       }
