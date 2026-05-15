@@ -16,12 +16,16 @@ export async function getWeatherContext(destinationsString: string): Promise<Wea
   try {
     const forecasts = await Promise.all(destinations.map(async (destination) => {
       try {
-        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destination)}&count=1&language=en&format=json`
+        const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destination)}&count=5&language=en&format=json`
         const geoRes = await fetch(geoUrl, { next: { revalidate: 3600 } }) 
         const geoData = await geoRes.json()
 
         if (!geoData.results || geoData.results.length === 0) throw new Error("Location not found")
-        const { latitude, longitude, name } = geoData.results[0]
+        
+        const exactMatch = geoData.results.find((r: any) => r.name.toLowerCase() === destination.toLowerCase())
+        const locationToUse = exactMatch || geoData.results[0]
+
+        const { latitude, longitude, name } = locationToUse
 
         const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`
         const weatherRes = await fetch(weatherUrl, { next: { revalidate: 1800 } }) 
