@@ -10,29 +10,49 @@ const TIER_LABEL = { budget: 'Budget friendly', mid: 'Mid range', luxury: 'Luxur
 export default function TripPage() {
   const { id } = useParams()
   const router = useRouter()
+  const isGuest = id === 'guest'
   const [trip, setTrip] = useState<Trip | null>(null)
   const [loading, setLoading] = useState(true)
   const [deleteLoading, setDeleteLoading] = useState(false)
-  // Weather states
   const [weatherData, setWeatherData] = useState<WeatherLocationForecast[] | string | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
   const [activeWeatherLoc, setActiveWeatherLoc] = useState<number>(0)
-  // Tab & Action States
   const [activeTab, setActiveTab] = useState<'itinerary' | 'insights' | 'budget' | 'hotels' | 'packing' | 'weather' | 'polls' | 'splitwise'>('itinerary')
+  
   const [regenLoading, setRegenLoading] = useState<number | null>(null)
   const [regenText, setRegenText] = useState<Record<number, string>>({})
   const [swapLoading, setSwapLoading] = useState<string | null>(null)
   const [alternatives, setAlternatives] = useState<Record<string, Activity[]>>({})
-  // Collaboration States
+  
   const [inviteEmail, setInviteEmail] = useState('')
   const [newPollQ, setNewPollQ] = useState('')
   const [newPollOpts, setNewPollOpts] = useState(['', ''])
   const [newExpDesc, setNewExpDesc] = useState('')
   const [newExpAmt, setNewExpAmt] = useState('')
-  // Export State
   const [isExporting, setIsExporting] = useState(false)
 
   const fetchTrip = useCallback(async (isBackgroundSync = false) => {
+    if (isGuest) {
+      const guestDataStr = sessionStorage.getItem('guestTrip')
+      if (guestDataStr) {
+        const parsed = JSON.parse(guestDataStr)
+        setTrip(parsed)
+        setLoading(false)
+        
+        if (!isBackgroundSync && parsed.destination && parsed.season) {
+          setWeatherLoading(true)
+          fetch(`/api/weather?destinations=${encodeURIComponent(parsed.destination)}&season=${encodeURIComponent(parsed.season)}`)
+            .then(res => res.json())
+            .then(wData => setWeatherData(wData.weather))
+            .catch(() => setWeatherData('Weather data unavailable.'))
+            .finally(() => setWeatherLoading(false))
+        }
+      } else {
+        router.push('/') // Redirect home if no guest trip is in memory
+      }
+      return
+    }
+
     const res = await fetch(`/api/trips/${id}`)
     if (res.ok) {
       const data = await res.json()
@@ -48,27 +68,32 @@ export default function TripPage() {
       }
     }
     setLoading(false)
-  }, [id])
+  }, [id, isGuest, router])
 
   useEffect(() => { 
     fetchTrip() 
+
+    if (isGuest) return // guests do not connect to live Pusher websockets
 
     const pusher = getPusherClient()
     if (!pusher) return 
 
     const channel = pusher.subscribe(`trip-${id}`)
-
-    channel.bind('trip-updated', () => {
-      fetchTrip(true) 
-    })
+    channel.bind('trip-updated', () => { fetchTrip(true) })
 
     return () => {
       pusher.unsubscribe(`trip-${id}`)
       pusher.disconnect()
     }
-  }, [fetchTrip, id])
+  }, [fetchTrip, id, isGuest])
 
   async function patch(body: object) {
+    if (isGuest) {
+      alert('🚀 Sign up for a free account to unlock multiplayer features, live polls, alternative activities, and expense tracking!');
+      router.push('/register');
+      return null;
+    }
+
     const res = await fetch(`/api/trips/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -84,13 +109,19 @@ export default function TripPage() {
 
   async function exportToPDF() {
     if (!trip) return;
+    if (isGuest) {
+      alert('📄 Please create a free account to download and export your itinerary offline!');
+      router.push('/register');
+      return;
+    }
+
     setIsExporting(true);
     
     try {
       const { jsPDF } = await import('jspdf');
       const autoTableModule = await import('jspdf-autotable');
       const autoTable = autoTableModule.default || autoTableModule;
-      
+
       const doc = new jsPDF();
       let yPos = 20;
 
@@ -119,7 +150,7 @@ export default function TripPage() {
           ]),
           bodyStyles: { valign: 'top' },
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
+          didDrawPage: (data: any) => { if (data.cursor) yPos = data.cursor.y; }
         });
         yPos += 10;
       });
@@ -135,7 +166,7 @@ export default function TripPage() {
             `$${h.pricePerNight}`
           ]),
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
+          didDrawPage: (data: any) => { if (data.cursor) yPos = data.cursor.y; }
         });
         yPos += 10;
       }
@@ -153,7 +184,7 @@ export default function TripPage() {
             ['Total', `$${trip.budget.total}`]
           ],
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
+          didDrawPage: (data: any) => { if (data.cursor) yPos = data.cursor.y; }
         });
         yPos += 10;
       }
@@ -164,7 +195,7 @@ export default function TripPage() {
           headStyles: { fillColor: [167, 139, 250] },
           body: trip.packingNotes.map(note => [`• ${note}`]),
           margin: { left: 14, right: 14 },
-          didDrawPage: (data) => { if (data.cursor) yPos = data.cursor.y; }
+          didDrawPage: (data: any) => { if (data.cursor) yPos = data.cursor.y; }
         });
       }
       doc.save(`Wanderly_${trip.destination.replace(/\s+/g, '_')}.pdf`);
@@ -181,7 +212,7 @@ export default function TripPage() {
     if (!inviteEmail) return
     await patch({ action: 'add_collaborator', email: inviteEmail })
     setInviteEmail('')
-    alert('Collaborator added!')
+    if (!isGuest) alert('Collaborator added!')
   }
 
   async function createPoll() {
@@ -190,9 +221,7 @@ export default function TripPage() {
     setNewPollQ(''); setNewPollOpts(['', ''])
   }
 
-  async function votePoll(pollId: string, optionId: string) {
-    await patch({ action: 'vote_poll', pollId, optionId })
-  }
+  async function votePoll(pollId: string, optionId: string) { await patch({ action: 'vote_poll', pollId, optionId }) }
 
   async function addExpense() {
     if (!newExpDesc || !newExpAmt) return
@@ -209,6 +238,7 @@ export default function TripPage() {
   }
 
   async function getAlternatives(activityId: string, activityName: string) {
+    if (isGuest) { patch({}); return; } // trigger intercept
     if (alternatives[activityId]) {
       setAlternatives(prev => { const next = {...prev}; delete next[activityId]; return next; })
       return;
@@ -231,11 +261,10 @@ export default function TripPage() {
     setAlternatives(prev => { const next = {...prev}; delete next[activityId]; return next; });
   }
 
-  async function removeActivity(dayNumber: number, activityId: string) { 
-    await patch({ action: 'remove_activity', dayNumber, activityId }) 
-  }
+  async function removeActivity(dayNumber: number, activityId: string) { await patch({ action: 'remove_activity', dayNumber, activityId }) }
 
   async function regenerateDay(dayNumber: number) {
+    if (isGuest) { patch({}); return; } // triger intercept
     const instruction = regenText[dayNumber]?.trim() || 'Regenerate with similar activities'
     setRegenLoading(dayNumber)
     await patch({ action: 'regenerate_day', dayNumber, instruction })
@@ -244,6 +273,11 @@ export default function TripPage() {
   }
 
   async function deleteTrip() {
+    if (isGuest) {
+      sessionStorage.removeItem('guestTrip');
+      router.push('/');
+      return;
+    }
     if (!confirm('Delete this trip? This cannot be undone.')) return
     setDeleteLoading(true)
     await fetch(`/api/trips/${id}`, { method: 'DELETE' })
@@ -264,6 +298,12 @@ export default function TripPage() {
 
   return (
     <div className="flex flex-col h-full bg-cream-50">
+      {isGuest && (
+        <div className="bg-amber-100 text-amber-900 text-sm py-2 px-8 text-center font-medium border-b border-amber-200">
+          You are viewing this trip in Guest Mode. Your itinerary will be lost if you leave this page!
+        </div>
+      )}
+
       <div className="px-8 py-5 border-b border-amber-100 bg-white flex flex-col gap-4 shadow-sm z-10">
         <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6">
           
@@ -279,7 +319,14 @@ export default function TripPage() {
             </div>
             <p className="page-subtitle mb-2 mt-1">{trip.days} days · {trip.vibe} · {trip.season}</p>
           </div>
+          
           <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+            {isGuest && (
+              <button onClick={() => router.push('/register')} className="px-4 py-2 bg-amber-600 text-white rounded-lg font-medium shadow-md hover:bg-amber-700 animate-pulse whitespace-nowrap">
+                💾 Save Trip to Dashboard
+              </button>
+            )}
+
             <button onClick={exportToPDF} disabled={isExporting} className="btn-secondary shadow-sm bg-white border-amber-200 hover:bg-amber-50 whitespace-nowrap">
               {isExporting ? 'Generating...' : '📄 Download PDF'}
             </button>
@@ -377,22 +424,17 @@ export default function TripPage() {
             )}
           </div>
         )}
+
         {activeTab === 'insights' && (
           <div className="max-w-3xl space-y-6">
             <div className="card bg-amber-50/50 border-amber-200">
-              <h3 className="font-lora font-semibold text-amber-900 mb-2 flex items-center gap-2">
-                🕵️‍♀️ Verified Local Intelligence
-              </h3>
-              <p className="text-sm text-amber-700 mb-6">
-                Our AI agents actively scanned Reddit travel communities to ground your itinerary in real, human-verified experiences. Here is the raw context used to generate your plan:
-              </p>
+              <h3 className="font-lora font-semibold text-amber-900 mb-2 flex items-center gap-2">🕵️‍♀️ Verified Local Intelligence</h3>
+              <p className="text-sm text-amber-700 mb-6">Our AI agents actively scanned Reddit travel communities to ground your itinerary in real, human-verified experiences. Here is the raw context used to generate your plan:</p>
               
               {trip.localInsights && trip.localInsights.length > 0 ? (
                 <div className="space-y-4">
                   {trip.localInsights.map((insight, i) => (
-                    <div key={i} className="text-sm text-stone-700 bg-white p-4 rounded-xl border border-amber-100 shadow-sm leading-relaxed">
-                      "{insight}"
-                    </div>
+                    <div key={i} className="text-sm text-stone-700 bg-white p-4 rounded-xl border border-amber-100 shadow-sm leading-relaxed">"{insight}"</div>
                   ))}
                 </div>
               ) : (
@@ -418,9 +460,7 @@ export default function TripPage() {
               </div>
             </div>
 
-            {trip.polls?.length === 0 && (
-              <div className="text-center text-sm text-stone-400 py-8">No polls created yet.</div>
-            )}
+            {trip.polls?.length === 0 && <div className="text-center text-sm text-stone-400 py-8">No polls created yet.</div>}
 
             {trip.polls?.map((poll: any) => (
               <div key={poll._id} className="card border-stone-200 shadow-sm">
@@ -438,9 +478,7 @@ export default function TripPage() {
                           <div className="flex items-center gap-2">
                             <div className="flex -space-x-1.5 mr-2">
                               {opt.votes.slice(0, 3).map((voter: string, vIndex: number) => (
-                                <div key={vIndex} className="w-5 h-5 rounded-full bg-stone-300 border border-white flex items-center justify-center text-[9px] text-stone-700 font-bold" title={voter}>
-                                  {voter[0].toUpperCase()}
-                                </div>
+                                <div key={vIndex} className="w-5 h-5 rounded-full bg-stone-300 border border-white flex items-center justify-center text-[9px] text-stone-700 font-bold" title={voter}>{voter[0].toUpperCase()}</div>
                               ))}
                             </div>
                             <span className="text-xs font-semibold text-stone-600">{percent}%</span>
@@ -463,16 +501,14 @@ export default function TripPage() {
               </div>
               <div className="card bg-amber-50 border-amber-200 text-center shadow-sm">
                 <p className="text-sm font-medium text-amber-800">Per Person (Est.)</p>
-                <p className="text-4xl font-lora font-bold text-amber-900 mt-2">
-                  ${(totalExpenses / totalPeople).toFixed(2)}
-                </p>
+                <p className="text-4xl font-lora font-bold text-amber-900 mt-2">${(totalExpenses / totalPeople).toFixed(2)}</p>
                 <p className="text-xs text-amber-700 mt-1">Split among {totalPeople} people</p>
               </div>
             </div>
 
             <div className="card border-stone-200 flex gap-3 items-center shadow-sm p-4 bg-white">
               <div className="flex-1">
-                <input value={newExpDesc} onChange={e => setNewExpDesc(e.target.value)} placeholder="What did you pay for? (e.g., Dinner)" className="input-field bg-stone-50" />
+                <input value={newExpDesc} onChange={e => setNewExpDesc(e.target.value)} placeholder="What did you pay for?" className="input-field bg-stone-50" />
               </div>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400">$</span>
@@ -494,9 +530,7 @@ export default function TripPage() {
                   <span className="font-semibold text-stone-800">${exp.amount.toFixed(2)}</span>
                 </div>
               ))}
-              {(!trip.expenses || trip.expenses.length === 0) && (
-                <div className="p-10 text-center text-stone-400 text-sm">No expenses tracked yet. Add your first transaction above!</div>
-              )}
+              {(!trip.expenses || trip.expenses.length === 0) && <div className="p-10 text-center text-stone-400 text-sm">No expenses tracked yet.</div>}
             </div>
           </div>
         )}
@@ -537,13 +571,9 @@ export default function TripPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-stone-800">{hotel.name}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded-full border ${TIER_STYLE[hotel.tier as keyof typeof TIER_STYLE] || TIER_STYLE.mid}`}>
-                        {TIER_LABEL[hotel.tier as keyof typeof TIER_LABEL] || 'Hotel'}
-                      </span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${TIER_STYLE[hotel.tier as keyof typeof TIER_STYLE] || TIER_STYLE.mid}`}>{TIER_LABEL[hotel.tier as keyof typeof TIER_LABEL] || 'Hotel'}</span>
                     </div>
-                    <div className="text-xs text-amber-600 mt-0.5">
-                      {'★'.repeat(hotel.rating)}{'☆'.repeat(5 - hotel.rating)} · ${hotel.pricePerNight}/night
-                    </div>
+                    <div className="text-xs text-amber-600 mt-0.5">{'★'.repeat(hotel.rating)}{'☆'.repeat(5 - hotel.rating)} · ${hotel.pricePerNight}/night</div>
                     {hotel.description && <div className="text-xs text-amber-500 mt-0.5">{hotel.description}</div>}
                   </div>
                 </div>
@@ -557,9 +587,7 @@ export default function TripPage() {
             <h3 className="font-lora font-semibold text-amber-900 mb-4">Packing & Prep for {trip.destination}</h3>
             <ul className="space-y-3">
               {trip.packingNotes?.map((note, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm text-stone-700">
-                  <span className="text-amber-500 mt-0.5">✓</span> {note}
-                </li>
+                <li key={i} className="flex items-start gap-2 text-sm text-stone-700"><span className="text-amber-500 mt-0.5">✓</span> {note}</li>
               ))}
             </ul>
           </div>
@@ -576,17 +604,10 @@ export default function TripPage() {
                 {weatherData.length > 1 && (
                   <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                     {weatherData.map((loc, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => setActiveWeatherLoc(idx)}
-                        className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border ${activeWeatherLoc === idx ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-sm' : 'bg-white border-amber-100 text-stone-500 hover:bg-amber-50'}`}
-                      >
-                        📍 {loc.location}
-                      </button>
+                      <button key={idx} onClick={() => setActiveWeatherLoc(idx)} className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors whitespace-nowrap border ${activeWeatherLoc === idx ? 'bg-amber-100 border-amber-300 text-amber-900 shadow-sm' : 'bg-white border-amber-100 text-stone-500 hover:bg-amber-50'}`}>📍 {loc.location}</button>
                     ))}
                   </div>
                 )}
-
                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                   {weatherData[activeWeatherLoc].daily.map((day, i) => (
                     <div key={i} className={`p-4 rounded-2xl border flex flex-col items-center text-center ${i === 0 ? 'bg-sky-50 border-sky-200' : 'bg-white border-amber-100'}`}>
@@ -602,9 +623,7 @@ export default function TripPage() {
                 </div>
               </>
             ) : (
-              <div className="p-8 text-center text-stone-500 bg-white rounded-2xl border border-amber-100">
-                Detailed forecast is currently unavailable for these destinations.
-              </div>
+              <div className="p-8 text-center text-stone-500 bg-white rounded-2xl border border-amber-100">Detailed forecast is currently unavailable for these destinations.</div>
             )}
           </div>
         )}

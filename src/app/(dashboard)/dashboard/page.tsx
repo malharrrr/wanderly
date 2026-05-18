@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { connectDB } from '@/lib/db'
 import TripModel from '@/models/Trip'
 import Link from 'next/link'
+import { GuestSync } from './GuestSync' 
 
 const EMOJI_MAP: Record<string, string> = {
   default: '🌍',
@@ -149,6 +150,8 @@ function DashboardSkeleton() {
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
+  if (!session) return null;
+  
   const firstName = session?.user?.name?.split(' ')[0] || 'Traveller'
   
   const hour = new Date().getHours()
@@ -156,6 +159,8 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
+      <GuestSync/> 
+
       <div className="px-8 py-6 border-b border-amber-100 flex items-center justify-between bg-white shadow-sm z-10">
         <div>
           <h1 className="page-title">{greeting}, {firstName} 👋</h1>

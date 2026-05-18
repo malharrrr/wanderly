@@ -1,18 +1,15 @@
-import { getServerSession } from 'next-auth'
-import { redirect } from 'next/navigation'
-import { authOptions } from '@/lib/auth'
 import Sidebar from '@/components/layout/Sidebar'
+import AuthGuard from '@/components/layout/AuthGuard'
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const session = await getServerSession(authOptions)
-  if (!session) redirect('/login')
-
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen bg-cream-50">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden w-full pt-16 md:pt-0">
-        {children}
-      </main>
-    </div>
+    <AuthGuard>
+      <div className="flex min-h-screen bg-cream-50">
+        <Sidebar />
+        <main className="flex-1 flex flex-col overflow-hidden w-full pt-16 md:pt-0">
+          {children}
+        </main>
+      </div>
+    </AuthGuard>
   )
 }
