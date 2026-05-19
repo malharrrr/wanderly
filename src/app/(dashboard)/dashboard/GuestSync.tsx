@@ -6,7 +6,7 @@ export function GuestSync() {
   const router = useRouter();
 
   useEffect(() => {
-    const guestTrip = sessionStorage.getItem('guestTrip');
+    const guestTrip = localStorage.getItem('guestTrip');
     
     if (guestTrip) {
       const saveGuestTrip = async () => {
@@ -23,7 +23,7 @@ export function GuestSync() {
           });
           
           if (res.ok) {
-            sessionStorage.removeItem('guestTrip');
+            localStorage.removeItem('guestTrip');
             router.refresh(); 
           }
         } catch (e) {
@@ -34,5 +34,5 @@ export function GuestSync() {
       saveGuestTrip();
     }
   }, [router]);
-  return null;
+  return null; 
 }

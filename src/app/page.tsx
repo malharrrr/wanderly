@@ -33,7 +33,7 @@ export default function LandingPage() {
       }
 
       if (data.isGuest) {
-        sessionStorage.setItem('guestTrip', JSON.stringify(data))
+        localStorage.setItem('guestTrip', JSON.stringify(data))
         router.push('/trips/guest')
       } else {
         router.push(`/trips/${data._id}`)

@@ -34,7 +34,7 @@ export default function TripClient({ tripId, isGuest, initialTrip }: { tripId: s
 
   const fetchTrip = useCallback(async (isBackgroundSync = false) => {
     if (isGuest) {
-      const guestDataStr = sessionStorage.getItem('guestTrip')
+      const guestDataStr = localStorage.getItem('guestTrip')
       if (guestDataStr) {
         const parsed = JSON.parse(guestDataStr)
         setTrip(parsed)
@@ -49,7 +49,7 @@ export default function TripClient({ tripId, isGuest, initialTrip }: { tripId: s
             .finally(() => setWeatherLoading(false))
         }
       } else {
-        router.push('/')
+        router.push('/') 
       }
       return
     }
@@ -274,9 +274,9 @@ export default function TripClient({ tripId, isGuest, initialTrip }: { tripId: s
     setRegenText(prev => ({ ...prev, [dayNumber]: '' }))
   }
 
-  async function deleteTrip() {
+ async function deleteTrip() {
     if (isGuest) {
-      sessionStorage.removeItem('guestTrip');
+      localStorage.removeItem('guestTrip');
       router.push('/');
       return;
     }
