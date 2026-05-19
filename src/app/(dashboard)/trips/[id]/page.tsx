@@ -4,8 +4,8 @@ import { connectDB } from '@/lib/db'
 import TripModel from '@/models/Trip'
 import TripClient from './TripClient'
 
-export default async function TripPage({ params }: { params: { id: string } }) {
-  const { id } = params
+export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
 
   if (id === 'guest') {
     return <TripClient tripId="guest" isGuest={true} initialTrip={null} />
