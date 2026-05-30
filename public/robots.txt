@@ -1,0 +1,36 @@
+# Wanderly AI Travel Planner - robots.txt
+# Allow all search engines to crawl public pages
+
+User-agent: *
+Allow: /
+Allow: /login
+Allow: /register
+Allow: /dashboard
+Allow: /plan
+Allow: /trips
+Allow: /trips/guest
+Allow: /trip/share
+Allow: /api/auth/*
+Disallow: /api/trips/*
+Disallow: /api/weather/*
+Disallow: /api/register
+Disallow: /*.json$
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+
+# Prevent crawling of private/authenticated pages that require login
+Disallow: /dashboard/*
+Disallow: /plan/*
+Disallow: /trips/*
+
+# Allow crawling of public shared trips
+Allow: /trip/share/*
+
+# Sitemap location
+Sitemap: https://wanderly-weld.vercel.app/sitemap.xml
+
+# Crawl delay (optional - adjust if server load is a concern)
+# Crawl-delay: 1
+
+# Request rate (optional - in requests per second for Googlebot)
+# Request-rate: 10/1s
